@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import '@/styles/globals.css'
+import { DatabaseInitializer } from '@/components/DatabaseInitializer'
 
 export const metadata: Metadata = {
   title: 'Rice Bowl',
@@ -30,6 +31,7 @@ export default function RootLayout({
         <link rel='apple-touch-icon' href='/images/icon-maskable-512.png' />
       </head>
       <body>
+        <DatabaseInitializer />
         {children}
       </body>
     </html>
