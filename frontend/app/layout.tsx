@@ -25,12 +25,12 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className="h-screen" suppressHydrationWarning>
       <head>
         <link rel='icon' type='image/png' href='/images/favicon.png' />
         <link rel='apple-touch-icon' href='/images/icon-maskable-512.png' />
       </head>
-      <body>
+      <body className="bg-primary">
         <DatabaseInitializer />
         {children}
       </body>

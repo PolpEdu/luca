@@ -2,7 +2,7 @@
 
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { SendHorizontal } from 'lucide-react'
+import { AudioLinesIcon, SendHorizontal } from 'lucide-react'
 import { useRef } from 'react'
 
 interface PromptFormProps {
@@ -31,23 +31,23 @@ export function PromptForm({
         setInput('')
         await onSubmit(input)
       }}
-      className="relative flex items-center gap-2"
+      className="relative grid grid-cols-[1fr_min-content] items-center gap-2"
     >
       <Textarea
         value={input}
         onChange={e => setInput(e.target.value)}
-        placeholder="Send a message..."
-        className="min-h-[52px] w-full resize-none rounded-md bg-background px-4 py-[1.3rem] focus-within:outline-none"
+        placeholder="Ask EVA to perform a task..."
+        className="text-white w-full  rounded-full bg-secondary px-4 py-4 focus-visible:ring-[none] focus-visible:ring-offset-0 "
         autoFocus
         spellCheck={false}
         rows={1}
       />
       <Button 
-        type="submit" 
-        size="icon"
+        type="submit"
         disabled={isLoading || !input?.trim()}
+        className='h-full aspect-square rounded-full border-2 border-secondary hover:bg-secondary active:bg-secondary'
       >
-        <SendHorizontal />
+        <AudioLinesIcon className='text-white !h-6 !w-6' />
       </Button>
     </form>
   )
