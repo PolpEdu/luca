@@ -11,10 +11,11 @@ from cdp_langchain.utils import CdpAgentkitWrapper
 
 from db.wallet import add_wallet_info, get_wallet_info
 from agent.custom_actions.get_latest_block import get_latest_block
-from agent.custom_actions.fetchEnsAddress import get_ens_address
 from agent.custom_actions.get_price import get_price
 from agent.custom_actions.bridge import bridge_usdc
 from agent.custom_actions.get_balance_ens import get_balance_ens
+from agent.custom_actions.get_portfolio_info import get_portfolio_info
+from agent.custom_actions.fetch_ens_address import get_ens_address
 
 
 def initialize_agent():
@@ -96,6 +97,7 @@ def initialize_agent():
             get_ens_address,
             get_price,
             get_balance_ens,
+            get_portfolio_info,
             bridge_usdc,
         ]
 

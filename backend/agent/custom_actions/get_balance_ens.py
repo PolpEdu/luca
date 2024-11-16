@@ -22,13 +22,18 @@ def get_balance_ens(ens: str, token: str) -> str:
         str: The balance information for the address.
     """
     try:
-        address = fetch_address_ens(ens)
+        address = None
+        if not ens.endswith(".eth"):
+            address = ens
+        else:
+            address = fetch_address_ens(ens)
+
         if not address or not is_address(address):
             return f"Could not resolve ENS name: {ens}"
 
         if token.lower() == "eth":
             eth_balance = get_eth_balance(address)
-            return f"The balance for {ens} ({address}) is {eth_balance:.4f} ETH."
+            return f"The balance for {ens} ({address}) is {float(eth_balance):.4f} ETH."
         else:
             token_address = get_token_address(token)
             # print(f"Token address: {token_address}")

@@ -164,8 +164,6 @@ export default function SpeechToText() {
       setError('Failed to send audio data');
     } finally {
       setIsTranscribing(false);
-      setAudioData([]);
-      setToolsData('');
     }
   };
 

@@ -1,10 +1,9 @@
 'use client'
 
 import { PromptForm } from './prompt-form'
-import { ButtonScrollToBottom } from './button-scroll-to-bottom'
 import { RefreshCw, Square } from 'lucide-react'
 import { ChatMessage } from '@/lib/db/types'
-import { sendMessage, createUserMessage } from '@/lib/services/chat-service'
+import { sendRecordedAudio, createUserMessage } from '@/lib/services/chat-service'
 import { useRouter } from 'next/navigation'
 import { useAccount } from 'wagmi'
 
@@ -27,20 +26,20 @@ export function ChatPanel({
   reload,
   input,
   setInput,
-  messages
+  messages,
 }: ChatPanelProps) {
   const router = useRouter()
   const { isConnected } = useAccount()
 
-  const handleSubmit = async (value: string) => {
+  const handleSubmit = async (value: string, audioData: Int16Array[]) => {
     try {
       // Append user message
       const userMessage = createUserMessage(value, id)
-      await append(userMessage)
+      append(userMessage)
 
       // Get and append AI response
-      const aiMessage = await sendMessage(value, id)
-      await append(aiMessage)
+      const aiMessage = await sendRecordedAudio(audioData)
+      if (aiMessage) append(aiMessage)
 
       // After successful message exchange, redirect based on wallet connection
       if (!isConnected) {

@@ -4,6 +4,7 @@ import Image from "next/image"
 import icon from '@/public/images/eva-icon.svg'
 import { useState, useRef, useEffect } from 'react'
 import OpenAI from 'openai'
+import { sendRecordedAudio } from "@/lib/services/chat-service"
 
 const SAMPLE_RATE = 16000
 const openai = new OpenAI({
@@ -21,13 +22,11 @@ function floatTo16BitPCM(float32Array: Float32Array): ArrayBuffer {
   return buffer
 }
 
-export function EmptyScreen({ setInput }: { setInput: (value: string) => void }) {
+export function EmptyScreen({ setInput, isTranscribing = false }: { setInput: (value: string) => void, isTranscribing: boolean }) {
   const [isRecording, setIsRecording] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [audioData, setAudioData] = useState<Int16Array[]>([])
-  const [isTranscribing, setIsTranscribing] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
-
   const audioContextRef = useRef<AudioContext | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const processorRef = useRef<ScriptProcessorNode | null>(null)
@@ -105,42 +104,7 @@ export function EmptyScreen({ setInput }: { setInput: (value: string) => void })
       streamRef.current = null
     }
 
-    setIsRecording(false)
-    await sendRecordedAudio()
-  }
-
-  const sendRecordedAudio = async () => {
-    try {
-      if (audioData.length === 0) return
-
-      setIsTranscribing(true)
-      const combinedLength = audioData.reduce((acc, chunk) => acc + chunk.length, 0)
-      const combinedAudio = new Int16Array(combinedLength)
-      let offset = 0
-
-      audioData.forEach(chunk => {
-        combinedAudio.set(chunk, offset)
-        offset += chunk.length
-      })
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/transcribe`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          audio_data: Array.from(combinedAudio),
-          conversation_id: 0,
-        }),
-      })
-
-      const text = await response.text()
-      setInput(text)
-    } catch (err) {
-      console.error('Error sending audio:', err)
-      setError('Failed to send audio data')
-    } finally {
-      setIsTranscribing(false)
-      setAudioData([])
-    }
+    await sendRecordedAudio(audioData)
   }
 
   const handleToggleRecording = async () => {
