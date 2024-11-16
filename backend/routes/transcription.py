@@ -3,53 +3,28 @@ from services.transcription_service import TranscriptionService, AudioChunk
 import json
 from flask_sock import Sock
 import numpy as np
+import asyncio
 
 bp = Blueprint("transcription", __name__)
 transcription_service = TranscriptionService()
 
 
-def handle_websocket(ws):
-    while True:
-        try:
-            message = ws.receive()
-            data = json.loads(message)
-
-            if data["type"] == "audio":
-                # Convert audio data to bytes
-                audio_data = np.array(data["audio_data"], dtype=np.int16).tobytes()
-
-                # Create AudioChunk without final logic
-                chunk = AudioChunk(data=audio_data)
-                print(f"Audio chunk: {chunk.data[:10]}")
-
-                # Process the audio
-                result = transcription_service.process_audio_sync(chunk)
-
-                # Send back the result
-                if "text" in result:
-                    ws.send(json.dumps({"text": result["text"]}))
-
-        except Exception as e:
-            print(f"WebSocket error: {str(e)}")
-            break
-
-
-@bp.route("/api/reset-transcription", methods=["POST"])
-def reset_transcription():
+@bp.route("/api/transcribe", methods=["POST"])
+def transcribe_audio():
     try:
-        transcription_service.reset_sync()
-        return jsonify({"status": "reset successful"}), 200
+        # Get audio data from request
+        data = request.get_json()
+        if not data or "audio_data" not in data:
+            return jsonify({"error": "No audio data provided"}), 400
+
+        # Convert array data to bytes
+        audio_data = np.array(data["audio_data"], dtype=np.int16).tobytes()
+        print(f"Transcribing audio data of length {len(audio_data)}")
+
+        # Process the audio using asyncio
+        result = asyncio.run(transcription_service.transcribe_audio(audio_data))
+
+        return jsonify(result)
     except Exception as e:
+        print(f"Transcription error: {str(e)}")
         return jsonify({"error": str(e)}), 500
-
-
-# Initialize websocket routes when blueprint is registered
-@bp.record_once
-def on_registered(state):
-    app = state.app
-    # Get the Sock instance directly from the app
-    if not hasattr(app, "sock"):
-        app.sock = Sock(app)
-
-    # Register the WebSocket route
-    app.sock.route("/ws")(handle_websocket)
