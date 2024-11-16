@@ -17,6 +17,8 @@ import { base } from 'wagmi/chains';
 import type { ReactNode } from 'react';
 import { http } from 'wagmi';
 
+import { SidebarProvider } from '@/components/ui/sidebar';
+
 // Add required styles
 import '@coinbase/onchainkit/styles.css';
 import '@rainbow-me/rainbowkit/styles.css';
@@ -69,7 +71,9 @@ function OnchainProviders({ children }: Props) {
           chain={base}
         >
           <RainbowKitProvider modalSize="compact">
-            {children}
+            <SidebarProvider className="w-screen h-screen"> 
+              {children}
+            </SidebarProvider>
           </RainbowKitProvider>
         </OnchainKitProvider>
       </QueryClientProvider>
