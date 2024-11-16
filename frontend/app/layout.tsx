@@ -2,10 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import '@/styles/globals.css'
 import '@coinbase/onchainkit/styles.css';
 import { DatabaseInitializer } from '@/components/DatabaseInitializer'
-import Navbar from '@/components/navbar'
-import Sidebar from '@/components/sidebar'
-import { SidebarProvider } from '@/components/ui/sidebar'
-import Providers from '@/components/providers';
+import { Providers } from '@/components/providers';
 
 export const metadata: Metadata = {
   title: 'Rice Bowl',

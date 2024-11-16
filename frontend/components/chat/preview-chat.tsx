@@ -43,7 +43,7 @@ export function PreviewChat({ id, initialMessages = [] }: PreviewChatProps) {
       {messages.length ? (
         <ChatList messages={messages} />
       ) : (
-        <EmptyScreen setInput={setInput} />
+        <EmptyScreen setInput={setInput} isTranscribing={isLoading} />
       )}
       <ChatPanel
         id={id}

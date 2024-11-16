@@ -3,7 +3,17 @@ import requests
 from ens import ENS
 from web3 import Web3
 import os
-from cdp import Wallet
+
+
+def get_rpc_url(chain: str) -> str:
+    if chain == "base" or chain == "8453":
+        return "https://base.llamarpc.com"
+    elif chain == "sepolia" or chain == "84532":
+        return "https://base-sepolia.llamarpc.com"
+    elif chain == "polygon" or chain == "137":
+        return "https://polygon.llamarpc.com"
+    else:
+        return "https://cloudflare-eth.com"
 
 
 def pad_address(address: str) -> str:
@@ -65,7 +75,29 @@ def get_requested_token_prices(token_addresses: list[str]) -> str:
     return price
 
 
-def fetch_address_ens(address: str) -> str:
-    w3 = Web3(Web3.HTTPProvider("https://cloudflare-eth.com"))
+def fetch_address_ens(address: str, chain: str = "ethereum") -> str:
+    w3 = Web3(Web3.HTTPProvider(get_rpc_url(chain)))
     ns = ENS.from_web3(w3)
     return ns.address(address)
+
+
+def get_eth_balance(address: str, chain: str = "ethereum") -> str:
+    w3 = Web3(Web3.HTTPProvider(get_rpc_url(chain)))
+    try:
+        balance = w3.eth.get_balance(Web3.to_checksum_address(address))
+        eth_balance = w3.from_wei(balance, "ether")
+        return str(eth_balance)
+    except Exception as e:
+        return f"Error fetching balance: {e}"
+
+
+def get_balance_token(address: str, token_address: str, chain: str = "ethereum") -> str:
+    w3 = Web3(Web3.HTTPProvider(get_rpc_url(chain)))
+    tokenInst = w3.eth.contract(
+        address=Web3.to_checksum_address(token_address),
+        abi=json.loads(open("abis/erc20.json").read()),
+    )  # declaring the token contract
+    decimals = tokenInst.functions.decimals().call()
+
+    balance = tokenInst.functions.balanceOf(address).call()
+    return str(balance / 10**decimals)
