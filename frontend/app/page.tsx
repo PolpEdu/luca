@@ -1,8 +1,15 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import OpenAI from 'openai';
 
 const SAMPLE_RATE = 16000;  // OpenAI expects 16kHz audio
+
+// Initialize OpenAI client
+const openai = new OpenAI({
+  apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
+  dangerouslyAllowBrowser: true // Required for frontend usage
+});
 
 function floatTo16BitPCM(float32Array: Float32Array): ArrayBuffer {
   const buffer = new ArrayBuffer(float32Array.length * 2);
@@ -20,16 +27,47 @@ export default function SpeechToText() {
   const [error, setError] = useState<string | null>(null);
   const [audioData, setAudioData] = useState<Int16Array[]>([]);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [toolsData, setToolsData] = useState('');
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isSpeechLoading, setIsSpeechLoading] = useState(false);
 
   const audioContextRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
+
+  const generateSpeech = async (text: string) => {
+    if (!text) return;
+
+    setIsSpeechLoading(true);
+    try {
+      const response = await openai.audio.speech.create({
+        model: "tts-1",
+        voice: "shimmer",
+        input: text,
+        speed: 1.15,
+      });
+
+      // Convert the response to a blob
+      const audioBlob = new Blob([await response.arrayBuffer()], { type: 'audio/mpeg' });
+      const audioUrl = URL.createObjectURL(audioBlob);
+
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.src = audioUrl;
+        await audioPlayerRef.current.play();
+        setIsPlaying(true);
+      }
+    } catch (err) {
+      console.error('Error generating speech:', err);
+      setError('Failed to generate speech');
+    } finally {
+      setIsSpeechLoading(false);
+    }
+  };
 
   const initializeAudioProcessing = async () => {
-
     try {
-      // Request microphone access
       streamRef.current = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
@@ -38,7 +76,6 @@ export default function SpeechToText() {
         }
       });
 
-      // Set up audio context and processing
       audioContextRef.current = new AudioContext({
         sampleRate: SAMPLE_RATE,
       });
@@ -49,7 +86,6 @@ export default function SpeechToText() {
       source.connect(processorRef.current);
       processorRef.current.connect(audioContextRef.current.destination);
 
-      // Process audio data
       processorRef.current.onaudioprocess = (e) => {
         const inputData = e.inputBuffer.getChannelData(0);
         const pcmData = new Int16Array(floatTo16BitPCM(inputData));
@@ -66,8 +102,12 @@ export default function SpeechToText() {
 
   const sendRecordedAudio = async () => {
     try {
+      const arr = Array.from(audioData);
+      if (arr.length === 0) {
+        return;
+      }
+
       setIsTranscribing(true);
-      // Combine all audio chunksNodeJS
       const combinedLength = audioData.reduce((acc, chunk) => acc + chunk.length, 0);
       const combinedAudio = new Int16Array(combinedLength);
       let offset = 0;
@@ -84,13 +124,42 @@ export default function SpeechToText() {
         },
         body: JSON.stringify({
           audio_data: Array.from(combinedAudio),
+          conversation_id: 0,
         }),
       });
 
-      const result = await response.json();
-      if (result.text) {
-        setTranscribedText(prev => prev + ' ' + result.text.trim());
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (!reader) {
+        throw new Error('No reader available');
       }
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
+        lines.forEach(line => {
+          if (line.trim()) {
+            try {
+              const jsonResponse = JSON.parse(line);
+              if (jsonResponse.event === 'tools') {
+                setToolsData(jsonResponse.data);
+              } else if (jsonResponse.event === 'agent') {
+                generateSpeech(jsonResponse.data);
+                setTranscribedText(jsonResponse.data);
+              }
+
+            } catch (err) {
+              console.error('Error parsing JSON:', err);
+            }
+          }
+        });
+      }
+
     } catch (err) {
       console.error('Error sending audio:', err);
       setError('Failed to send audio data');
@@ -121,8 +190,6 @@ export default function SpeechToText() {
     }
 
     setIsRecording(false);
-
-    // Automatically send the recording when stopping
     await sendRecordedAudio();
   };
 
@@ -140,9 +207,17 @@ export default function SpeechToText() {
     }
   };
 
+
   useEffect(() => {
+    audioPlayerRef.current = new Audio();
+    audioPlayerRef.current.onended = () => setIsPlaying(false);
+
     return () => {
       stopRecording();
+      if (audioPlayerRef.current) {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current = null;
+      }
     };
   }, []);
 
@@ -153,8 +228,8 @@ export default function SpeechToText() {
           onClick={handleToggleRecording}
           disabled={isTranscribing}
           className={`px-4 py-2 rounded-lg font-medium ${isRecording
-              ? 'bg-red-500 hover:bg-red-600'
-              : 'bg-blue-500 hover:bg-blue-600'
+            ? 'bg-red-500 hover:bg-red-600'
+            : 'bg-blue-500 hover:bg-blue-600'
             } text-white transition-colors ${isTranscribing ? 'opacity-50 cursor-not-allowed' : ''
             }`}
         >
@@ -177,6 +252,12 @@ export default function SpeechToText() {
         )}
         <p className="whitespace-pre-wrap">{transcribedText}</p>
       </div>
+
+      <div className="mt-4 p-4 border rounded-lg min-h-[200px] bg-white shadow">
+        <h2 className="text-xl font-bold mb-2">Tools Data:</h2>
+        <p className="whitespace-pre-wrap">{toolsData}</p>
+      </div>
+
     </div>
   );
 }
