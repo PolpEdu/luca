@@ -17,6 +17,7 @@ from agent.custom_actions.get_balance_ens import get_balance_ens
 from agent.custom_actions.get_portfolio_info import get_portfolio_info
 from agent.custom_actions.fetch_ens_address import get_ens_address
 from agent.custom_actions.burn import burns_token
+from agent.custom_actions.distribute import send_tokens_batch
 
 
 def initialize_agent():
@@ -100,6 +101,7 @@ def initialize_agent():
             get_portfolio_info,
             burns_token,
             bridge_usdc,
+            send_tokens_batch,
         ]
 
         # Store buffered conversation history in memory.

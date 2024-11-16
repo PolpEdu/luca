@@ -19,7 +19,7 @@ export function ClientChat({ isNewChat = false }: { isNewChat?: boolean }) {
         setMessages(serverMessages);
       }
     }
-    
+
     loadInitialData();
   }, []);
 
@@ -28,7 +28,7 @@ export function ClientChat({ isNewChat = false }: { isNewChat?: boolean }) {
   }
 
   return (
-    <Chat 
+    <Chat
       id={chat.id}
       initialMessages={messages}
       isNewChat={isNewChat}

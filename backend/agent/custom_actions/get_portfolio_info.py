@@ -2,31 +2,52 @@ import os
 import time
 import requests
 from constants import get_blockscout_explorer
+from utils import fetch_address_ens
+from flask import current_app
+from cdp import Wallet
 
 
-def get_portfolio_info(address: str, chain: str = "ethereum") -> dict:
-    """Gets address information for a given wallet address.
-    Includes current value, token details, and profit/loss information. With also the blockscout api link attached.
+def get_portfolio_info(ensOrAddress: str, chain: str) -> dict:
+    """Gets address information for a given wallet address. If the user asks for HIS portfolio info use the agent one. BY DEFAULT USE ETH MAINNET unless otherwise specified.
+    Includes current value, token details, and profit/loss information. With also the blockscout explorer: https://base-sepolia.blockscout.com/{address}/{address}
 
     Args:
-        address (str): The wallet address to get portfolio information for.
-        chain (str): The chain to get portfolio information for. Defaults to "ethereum" if not specified.
+        ensOrAddress (str): The ENS name (e.g., 'vitalik.eth'). If it starts with 0x... then it's an address. If it doesnt end with .eth and its not an address and the user is not referring to his portfolio, ask if the user wants to replace the ending with .eth. Only accept .eth endings.
+        chain (str): The chain to get portfolio information for. If you are not sure about the chain, ask the user.
     Returns:
         dict: A json with all of the portfolio information.
     """
     try:
         # Configuration
+        chain_id = None
         if chain == "polygon":
             chain_id = 137
-        elif chain == "sepolia" or chain == "84532":
-            chain_id = 84532
         elif chain == "base" or chain == "8453":
             chain_id = 8453
+        elif chain == "arbitrum" or chain == "42161":
+            chain_id = 42161
+        elif chain == "sepolia" or chain == "84532":
+            chain_id = 84532
+        elif (
+            chain == "ethereum"
+        ):  # needs to be ethereum. this api doesnt support testnets and stuff
+            chain_id = 1
+
+        address = None
+        if ensOrAddress.endswith(".eth"):
+            address = fetch_address_ens(ensOrAddress)
+        elif ensOrAddress.startswith("0x"):
+            address = ensOrAddress
         else:
-            chain_id = 1  # Ethereum mainnet
+            wallet: Wallet = current_app.wallet
+            address = wallet.address
+
+        if not address:
+            return {"error": "Could not resolve address"}
+
         headers = {"Authorization": f"Bearer {os.getenv('ONEINCH_API_KEY')}"}
         base_url = "https://api.1inch.dev/portfolio/portfolio/v4/overview/erc20"
-        params = {"addresses": address, "chain_id": str(chain_id)}
+        params = {"addresses": [address], "chain_id": str(chain_id)}
         # Get current value
         current_value = requests.get(
             f"{base_url}/current_value",
@@ -60,7 +81,6 @@ def get_portfolio_info(address: str, chain: str = "ethereum") -> dict:
                 address, isAddress=True, chain=chain
             ),
         }
-
         # Add token details
         for token in token_details.get("result", []):
             if token.get("value_usd", 0) > 1:  # Filter out dust amounts
@@ -84,6 +104,10 @@ def get_portfolio_info(address: str, chain: str = "ethereum") -> dict:
         return portfolio_data
 
     except Exception as e:
+        if "'result'" in str(e):
+            return {
+                "error": "We don't have enough information about this chain. Please try another chain or verify the chain name is correct."
+            }
         return {
             "error": f"Error fetching portfolio info: {e}",
         }

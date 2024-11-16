@@ -10,13 +10,15 @@ import OpenAI from 'openai';
 import { toast } from '@/hooks/use-toast'
 import { createSystemMessage, createUserMessage } from '@/lib/services/chat-service'
 import { useRouter } from 'next/navigation'
+import { db } from '@/lib/db'
+import type { Chat } from '@/lib/db'
 
 type Speaker = 'user' | 'system'
 type SpeakerState = 0 | 1
 const SAMPLE_RATE = 16000
 
 interface PromptFormProps {
-  onSubmit: (value: string) => Promise<void>
+  onSubmit: (value: string, isUser: boolean) => Promise<void>
   input: string
   setInput: (value: string) => void
   isLoading: boolean
@@ -66,11 +68,24 @@ export function PromptForm({
   useEffect(() => {
     audioPlayerRef.current = new Audio();
 
+    // Add ended event listener
+    audioPlayerRef.current.addEventListener('ended', () => {
+      setSpeaker('user');
+      setSpeakerState(0);
+      setIsVoiceMode(false);
+    });
+
     return () => {
       stopRecording();
       if (audioPlayerRef.current) {
+        audioPlayerRef.current.removeEventListener('ended', () => {
+          setSpeaker('user');
+          setIsVoiceMode(false);
+          setSpeakerState(0);
+        });
         audioPlayerRef.current.pause();
         audioPlayerRef.current = null;
+        setIsVoiceMode(false);
       }
     };
   }, []);
@@ -78,9 +93,81 @@ export function PromptForm({
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !isLoading && input.trim()) {
       e.preventDefault()
-      formRef.current?.requestSubmit()
+      handleTextMessage(input)
     }
   }
+
+  const handleStreamResponse = async (reader: ReadableStreamDefaultReader<Uint8Array>) => {
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value);
+      const lines = chunk.split('\n');
+
+      lines.forEach(async line => {
+        if (line.trim()) {
+          try {
+            const jsonResponse = JSON.parse(line);
+            if (jsonResponse.event === 'tools') {
+              setToolsData(jsonResponse.data);
+            } else if (jsonResponse.event === 'transcribed') {
+              handleNewMessage(jsonResponse.data, true);
+            } else if (jsonResponse.event === 'agent') {
+              handleNewMessage(jsonResponse.data, false);
+              await generateSpeech(jsonResponse.data);
+            }
+          } catch (err) {
+            console.log('Error parsing JSON:', err);
+            toast({
+              title: "Failed to parse response",
+              variant: "destructive"
+            });
+            setSpeaker('user');
+            setSpeakerState(0);
+
+          }
+        }
+      });
+    }
+  };
+
+  const handleTextMessage = async (text: string) => {
+    try {
+      setIsVoiceMode(true);
+      setSpeaker('system');
+      setSpeakerState(1);
+      await handleNewMessage(text, true);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/text`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          input: text,
+          conversation_id: 0,
+        }),
+      });
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('No reader available');
+      }
+
+      await handleStreamResponse(reader);
+    } catch (err) {
+      console.log('Error sending text message:', err);
+      toast({
+        title: "Failed to send message",
+        variant: "destructive"
+      });
+    } finally {
+      setSpeaker('user');
+      setSpeakerState(0);
+    }
+  };
 
   const initializeAudioProcessing = async () => {
     try {
@@ -167,11 +254,8 @@ export function PromptForm({
   const sendRecordedAudio = async () => {
     try {
       const arr = Array.from(audioData);
-      if (arr.length === 0) {
-        return;
-      }
+      if (arr.length === 0) return;
 
-      // THE AUDIO DATA IS STARTING TO GET TRANSCRIBED
       const combinedLength = audioData.reduce((acc, chunk) => acc + chunk.length, 0);
       const combinedAudio = new Int16Array(combinedLength);
       let offset = 0;
@@ -193,49 +277,11 @@ export function PromptForm({
       });
 
       const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-
       if (!reader) {
         throw new Error('No reader available');
       }
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
-
-        lines.forEach(line => {
-          if (line.trim()) {
-            try {
-              const jsonResponse = JSON.parse(line);
-              if (jsonResponse.event === 'tools') {
-                setToolsData(jsonResponse.data);
-              } else if (jsonResponse.event === 'transcribed') {
-                createUserMessage(jsonResponse.data, "0");
-              }
-              else if (jsonResponse.event === 'agent') {
-                setSpeakerState(1)
-                createSystemMessage(jsonResponse.data, "0"); // Call createSystemMessage to add the new message as system
-                generateSpeech(jsonResponse.data);
-
-                //TODO THE CHAT ID WILL BE THE URL ID 
-                // const chatId = await getCurrentChatId(); // Assuming getCurrentChatId is a function that fetches the current chat ID
-              }
-
-            } catch (err) {
-              console.log('Error parsing JSON:', err);
-              toast({
-                title: "Failed to parse JSON",
-                variant: "destructive"
-              });
-              setSpeaker('user');
-            }
-          }
-        });
-      }
-
+      await handleStreamResponse(reader);
     } catch (err) {
       console.log('Error sending audio:', err);
       toast({
@@ -263,6 +309,7 @@ export function PromptForm({
         setSpeakerState(1);
         audioPlayerRef.current.src = audioUrl;
         await audioPlayerRef.current.play();
+
       }
     } catch (err) {
       console.log('Error generating speech:', err);
@@ -270,42 +317,37 @@ export function PromptForm({
         title: "Failed to generate speech",
         variant: "destructive"
       });
-    } finally {
-      setSpeaker('user');
-      setSpeakerState(0);
     }
   };
 
-  const handleNewMessage = async (message: string) => {
+  const handleNewMessage = async (message: string, isUser: boolean) => {
+    setInput('');
+
     try {
       if (isNewChat) {
-        // Create a new chat and get the ID
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/chats`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ message })
-        });
+        // Create new chat in the database
+        const chatId = crypto.randomUUID();
+        const newChat: Chat = {
+          id: chatId,
+          title: message.slice(0, 100), // Use first 100 chars of message as title
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+        await db.chats.add(newChat);
+
+        // if not in route already, redirect to the new chat URL
+        const pathSegments = window.location.pathname.split('/');
+        if (!pathSegments.includes(chatId)) {
+          router.push(`/chat/${chatId}`);
         }
-
-        const data = await response.json();
-        if (!data.chatId) {
-          throw new Error('No chat ID received from server');
-        }
-
-        // Redirect to the new chat URL
-        router.push(`/chat/${data.chatId}`);
 
         // Wait for navigation to complete before submitting
         await new Promise(resolve => setTimeout(resolve, 100));
       }
 
       // Submit the message
-      await onSubmit(message);
+      await onSubmit(message, isUser);
     } catch (err) {
       console.error('Error handling message:', err);
       toast({
@@ -315,7 +357,6 @@ export function PromptForm({
       });
     }
   }
-
   return (
     <form
       ref={formRef}
@@ -325,7 +366,7 @@ export function PromptForm({
           return
         }
         setInput('')
-        await handleNewMessage(input)
+        await handleTextMessage(input)
       }}
       className="h-fit flex justify-center items-center"
     >
@@ -344,81 +385,57 @@ export function PromptForm({
             rows={1}
           />
 
-          {!isVoiceMode && (
-            input.trim() ? ( // the user is not talking
-              <Button
-                type="button"
-                onClick={async () => {
-                  if (input?.trim()) {
-                    await handleNewMessage(input);
-                    setInput('');
-                  }
-                }}
-                className="h-[55px] w-[55px] p-0 m-0 rounded-full border-[5px] border-secondary hover:bg-secondary active:bg-secondary"
-              >
-                <SendHorizontal className='text-white !size-6' />
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                onClick={async () => {
-                  console.log("recording started")
-                  if (isNewChat) {
-                    // Create new chat if we're on the new chat page
-                    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/chats`, {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify({ message: '' })
-                    });
-
-                    const { chatId } = await response.json();
-                    router.push(`/chat/${chatId}`);
-                  }
-                  
-                  setIsVoiceMode(true);
-                  setSpeakerState(1);
-                  handleToggleRecording();
-                }}
-                className={`h-[55px] w-[55px] p-0 m-0 rounded-full border-[5px] border-secondary`}
-              >
-                <AudioLinesIcon className='text-white !size-6' />
-              </Button>
-            )
+          {/* Text Mode - Send Button */}
+          {!isVoiceMode && input.length > 0 && (
+            <Button
+              type="button"
+              onClick={async (e) => {
+                e.preventDefault()
+                if (input?.trim()) {
+                  setInput('')
+                  await handleTextMessage(input)
+                }
+              }}
+              className="h-[55px] w-[55px] p-0 m-0 rounded-full border-[5px] border-secondary hover:bg-secondary active:bg-secondary"
+            >
+              <SendHorizontal className='text-white !size-6' />
+            </Button>
           )}
 
-          {isVoiceMode && speaker === 'user' && // the microphone is on and the user is talking
+          {/* Text Mode - Microphone Button */}
+          {!isVoiceMode && input.length < 1 && (
+            <Button
+              type="button"
+              onClick={async () => {
+                await handleToggleRecording()
+                setIsVoiceMode(true)
+                setSpeakerState(1)
+              }}
+              className="h-[55px] w-[55px] p-0 m-0 rounded-full border-[5px] border-secondary"
+            >
+              <AudioLinesIcon className='text-white !size-6' />
+            </Button>
+          )}
+
+          {/* Recording Mode - Stop Button */}
+          {isVoiceMode && isRecording && (
             <Button
               type="button"
               onClick={() => {
-                console.log("recording stopped")
-                setSpeaker('system');
-                setSpeakerState(0);
-                handleToggleRecording();
+                handleToggleRecording()
               }}
-              className={`h-[55px] w-[55px] p-0 m-0 rounded-full border-[5px] border-secondary bg-[#51ace7] animate-pulse`}
+              className="h-[55px] w-[55px] p-0 m-0 rounded-full border-[5px] border-secondary bg-[#51ace7] animate-pulse"
             >
               <SquareIcon className='text-primary !size-6' />
             </Button>
-          }
+          )}
 
-          {isVoiceMode && speaker === 'system' &&
-            (speakerState === 0 ? ( // EVA is loading
-              <div className={`h-[55px] w-[55px] flex items-center justify-center p-0 m-0 rounded-full border-[5px] border-secondary`}>
-                <div role="status">
-                  <svg aria-hidden="true" className="w-8 h-8 text-primary animate-spin dark:text-gray-600 fill-blue-600" viewBox="0 0 100 101" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z" fill="currentColor" />
-                    <path d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z" fill="currentFill" />
-                  </svg>
-                  <span className="sr-only">Loading...</span>
-                </div>
-              </div>
-            ) : ( // EVA is talking
-              <div className={`h-[55px] w-[55px] flex items-center justify-center p-0 m-0 rounded-full border-[5px] border-secondary bg-blue-500 animate-pulse`}>
-                <Image src={Eva} alt="EVA Icon" className='text-white !size-6' />
-              </div>
-            ))}
+          {/* System Processing/Speaking Mode */}
+          {isVoiceMode && !isRecording && (
+            <div className="h-[55px] w-[55px] flex items-center justify-center p-0 m-0 rounded-full border-[5px] border-secondary bg-blue-500 animate-pulse">
+              <Image src={Eva} alt="EVA Icon" className='text-white !size-6' />
+            </div>
+          )}
         </div>
       </div>
 

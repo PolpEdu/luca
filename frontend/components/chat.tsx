@@ -25,8 +25,8 @@ export function Chat({ id, initialMessages = [], isNewChat = false }: ChatProps)
           >
             <div
               className={`inline-block p-2 rounded-lg ${message.role === 'user'
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-gray-200'
+                ? 'bg-blue-500 text-white'
+                : 'bg-gray-400'
                 }`}
             >
               {message.content}

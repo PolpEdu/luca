@@ -1,8 +1,6 @@
 'use client'
 
 import { ChatMessage } from '@/lib/db/types'
-import { cn } from '@/lib/utils'
-import { User } from 'lucide-react'
 
 interface MessageProps {
   message: ChatMessage

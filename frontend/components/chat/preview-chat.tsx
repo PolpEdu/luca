@@ -13,7 +13,7 @@ interface PreviewChatProps {
   isNewChat?: boolean
 }
 
-export function PreviewChat({ id, initialMessages = [], isNewChat = false }: PreviewChatProps) {
+export function PreviewChat({ id, initialMessages = [] }: PreviewChatProps) {
   const { toast } = useToast()
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages)
   const [input, setInput] = useState('')
@@ -41,7 +41,7 @@ export function PreviewChat({ id, initialMessages = [], isNewChat = false }: Pre
 
   return (
     <div className="flex h-full flex-col space-y-4">
-      {messages.length ? (
+      {messages.length > 0 ? (
         <ChatList messages={messages} />
       ) : (
         <EmptyScreen setInput={setInput} isTranscribing={isLoading} />

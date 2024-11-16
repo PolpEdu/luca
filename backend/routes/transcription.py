@@ -54,7 +54,7 @@ def transcribe_audio():
 
 
 # route to just stream with context
-@bp.route("/api/stream", methods=["POST"])
+@bp.route("/api/text", methods=["POST"])
 def streamWithContext():
     try:
         # Get audio data from request

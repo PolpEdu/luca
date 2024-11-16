@@ -3,9 +3,8 @@
 import { PromptForm } from './prompt-form'
 import { RefreshCw, Square } from 'lucide-react'
 import { ChatMessage } from '@/lib/db/types'
-import { sendRecordedAudio, createUserMessage } from '@/lib/services/chat-service'
-import { useRouter } from 'next/navigation'
-import { useAccount } from 'wagmi'
+import { createUserMessage, createSystemMessage } from '@/lib/services/chat-service'
+import { toast } from '@/hooks/use-toast'
 
 interface ChatPanelProps {
   id?: string
@@ -28,27 +27,23 @@ export function ChatPanel({
   setInput,
   messages,
 }: ChatPanelProps) {
-  const router = useRouter()
-  const { isConnected } = useAccount()
-
-  const handleSubmit = async (value: string, audioData: Int16Array[]) => {
+  const handleSubmit = async (value: string, isUser: boolean) => {
     try {
       // Append user message
-      const userMessage = createUserMessage(value, id)
-      append(userMessage)
-
-      
-      // if (aiMessage) append(aiMessage)
-
-      // After successful message exchange, redirect based on wallet connection
-      router.push('/new-chat')  
-      // if (!isConnected) {
-      //   router.push('/login')
-      // } else {
-      // }
+      if (isUser) {
+        const userMessage = createUserMessage(value, id)
+        append(userMessage)
+      } else {
+        const aiMessage = createSystemMessage(value, id)
+        append(aiMessage)
+      }
     } catch (error) {
       console.error('Failed to get AI response:', error)
       // Handle error appropriately
+      toast({
+        title: "Error",
+        description: "Failed to get AI response"
+      })
     }
   }
 

@@ -119,3 +119,14 @@ def burn_token(wallet: Wallet, token_address: str, amount: str) -> str:
         amount, token_address, "0x0000000000000000000000000000000000000000"
     )
     return tx_hash.transaction_hash
+
+
+def disperse_token(
+    wallet: Wallet, token_address: str, total_amount: float, wallets: list[str]
+) -> list[str]:
+    singular_amount = str(total_amount / len(tokens))
+    txs_hashes = []
+    for address in wallets:
+        tx_hash = wallet.transfer(singular_amount, token_address, address)
+        txs_hashes.append(tx_hash.transaction_hash)
+    return txs_hashes

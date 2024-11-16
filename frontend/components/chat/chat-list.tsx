@@ -30,7 +30,7 @@ export function ChatList({ messages }: ChatListProps) {
             className={` text-white
                ${message.role === 'user'
                 ? 'bg-[#3896D6]'
-                : 'py-0 px-0'}`
+                : 'py-0 px-0 bg-slate-800'}`
             }
           />
         </div>
