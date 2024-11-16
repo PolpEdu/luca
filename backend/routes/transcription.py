@@ -1,3 +1,4 @@
+import json
 from flask import Blueprint, request, jsonify, Response, stream_with_context
 from agent.run_agent import run_agent
 from services.transcription_service import TranscriptionService, AudioChunk
@@ -31,7 +32,7 @@ def transcribe_audio():
         # First, send the transcribed text
         def generate():
             # Send the transcribed text as a JSON object with 'transcribed' key
-            yield f"data: {{'type': 'transcribed', 'content': {repr(result['text'])}}}"
+            yield json.dumps({"event": "transcribed", "data": result["text"]}) + "\n"
 
             # Then stream the agent's response
             config = {"configurable": {"thread_id": data["conversation_id"]}}

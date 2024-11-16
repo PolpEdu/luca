@@ -11,3 +11,7 @@ node_modules
 .env
 
 example/
+
+# Python cache files
+**/__pycache__/
+*.py[cod]

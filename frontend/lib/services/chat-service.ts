@@ -1,24 +1,6 @@
 import { ChatMessage } from '@/lib/db/types'
 import OpenAI from 'openai'
 
-<<<<<<< HEAD
-export async function sendMessage(message: string, chatId?: string): Promise<ChatMessage> {
-  return {
-    id: Math.random().toString(), // Consider using UUID here
-    content: message, // Hard-coded message
-    role: 'assistant',
-    chatId: chatId || '',
-    createdAt: new Date()
-  }
-=======
-const SAMPLE_RATE = 16000 // OpenAI expects 16kHz audio
-
-// Initialize OpenAI client
-const openai = new OpenAI({
-	apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
-	dangerouslyAllowBrowser: true, // Required for frontend usage
-})
-
 export function createUserMessage(
 	content: string,
 	chatId?: string,
@@ -30,8 +12,24 @@ export function createUserMessage(
 		chatId: chatId || '',
 		createdAt: new Date(),
 	}
->>>>>>> d3b4a1e9372b14da3438823cee2e0a596f06aedd
 }
+
+export async function createSystemMessage(message: string, chatId?: string): Promise<ChatMessage> {
+	return {
+		id: Math.random().toString(), // Consider using UUID here
+		content: message, // Hard-coded message
+		role: 'assistant',
+		chatId: chatId || '',
+		createdAt: new Date(),
+	}
+}
+
+// Initialize OpenAI client
+const openai = new OpenAI({
+	apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
+	dangerouslyAllowBrowser: true, // Required for frontend usage
+})
+
 
 export const sendRecordedAudio = async (
 	audioData: Int16Array<ArrayBufferLike>[],
