@@ -3,13 +3,14 @@ import requests
 from ens import ENS
 from web3 import Web3
 import os
+from cdp import Wallet
 
 
 def get_rpc_url(chain: str) -> str:
     if chain == "base" or chain == "8453":
         return "https://base.llamarpc.com"
     elif chain == "sepolia" or chain == "84532":
-        return "https://base-sepolia.llamarpc.com"
+        return "https://sepolia.base.org"
     elif chain == "polygon" or chain == "137":
         return "https://polygon.llamarpc.com"
     else:
@@ -101,3 +102,20 @@ def get_balance_token(address: str, token_address: str, chain: str = "ethereum")
 
     balance = tokenInst.functions.balanceOf(address).call()
     return str(balance / 10**decimals)
+
+
+def burn_token(wallet: Wallet, token_address: str, amount: str) -> str:
+    if token_address == "0x0000000000000000000000000000000000000000":
+        # simple transfer eth
+        tx_hash = wallet.transfer(
+            amount, "eth", "0x0000000000000000000000000000000000000000"
+        )
+
+        print("tx_hash", tx_hash.transaction_hash)
+        return tx_hash.transaction_hash
+
+    print(f"Burning {amount} of ({token_address}) token_address", flush=True)
+    tx_hash = wallet.transfer(
+        amount, token_address, "0x0000000000000000000000000000000000000000"
+    )
+    return tx_hash.transaction_hash

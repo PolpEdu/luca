@@ -23,7 +23,8 @@ app.register_blueprint(bp)
 
 # Initialize the agent
 agent_executor = initialize_agent()
-app.agent_executor = agent_executor
+app.agent_executor = agent_executor[0]
+app.wallet = agent_executor[1]
 
 if __name__ == "__main__":
     app.run(debug=True)

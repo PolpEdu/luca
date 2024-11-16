@@ -16,13 +16,13 @@ from agent.custom_actions.bridge import bridge_usdc
 from agent.custom_actions.get_balance_ens import get_balance_ens
 from agent.custom_actions.get_portfolio_info import get_portfolio_info
 from agent.custom_actions.fetch_ens_address import get_ens_address
+from agent.custom_actions.burn import burns_token
 
 
 def initialize_agent():
     """Initialize the agent with CDP Agentkit."""
     # Initialize LLM.
     llm = ChatOpenAI(model=constants.AGENT_MODEL)
-    llm_arb = ChatOpenAI(model=constants.AGENT_MODEL)
 
     # Read wallet data from environment variable or database
     wallet_id = os.getenv(constants.WALLET_ID_ENV_VAR)
@@ -98,6 +98,7 @@ def initialize_agent():
             get_price,
             get_balance_ens,
             get_portfolio_info,
+            burns_token,
             bridge_usdc,
         ]
 
@@ -105,12 +106,15 @@ def initialize_agent():
         memory = MemorySaver()
 
         # Create ReAct Agent using the LLM and CDP Agentkit tools.
-        return create_react_agent(
-            llm,
-            tools=tools,
-            checkpointer=memory,
-            state_modifier=constants.AGENT_PROMPT,
-        )
+        return [
+            create_react_agent(
+                llm,
+                tools=tools,
+                checkpointer=memory,
+                state_modifier=constants.AGENT_PROMPT,
+            ),
+            agentkit.wallet,
+        ]
     except Exception as e:
         import traceback
 

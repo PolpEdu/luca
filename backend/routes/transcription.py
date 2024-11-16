@@ -32,7 +32,7 @@ def transcribe_audio():
         # First, send the transcribed text
         def generate():
             # Send the transcribed text as a JSON object with 'transcribed' key
-            yield json.dumps({'event': 'transcribed', 'data': result['text']}) + "\n"
+            yield json.dumps({"event": "transcribed", "data": result["text"]}) + "\n"
 
             # Then stream the agent's response
             config = {"configurable": {"thread_id": data["conversation_id"]}}
