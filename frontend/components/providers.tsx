@@ -1,32 +1,80 @@
 "use client"
 
 import { OnchainKitProvider } from '@coinbase/onchainkit';
+import { 
+  RainbowKitProvider, 
+  connectorsForWallets, 
+  getDefaultConfig, 
+} from '@rainbow-me/rainbowkit';
+import { 
+  metaMaskWallet, 
+  rainbowWallet, 
+  coinbaseWallet, 
+} from '@rainbow-me/rainbowkit/wallets';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { base } from 'wagmi/chains'; // add baseSepolia for testing
-import { type ReactNode, useState } from 'react';
-import { type State, WagmiProvider } from 'wagmi';
-import { getConfig } from '@/lib/wagmi'; // your import path may vary
-import { SidebarProvider } from '@/components/ui/sidebar';
+import { WagmiProvider } from 'wagmi';
+import { base } from 'wagmi/chains';
+import type { ReactNode } from 'react';
+import { http } from 'wagmi';
 
-export default function Providers(props: {
-    children: ReactNode;
-    initialState?: State;
-}) {
-    const [config] = useState(() => getConfig());
-    const [queryClient] = useState(() => new QueryClient());
+// Add required styles
+import '@coinbase/onchainkit/styles.css';
+import '@rainbow-me/rainbowkit/styles.css';
 
-    return (
-        <WagmiProvider config={config} initialState={props.initialState}>
-            <QueryClientProvider client={queryClient}>
-                <OnchainKitProvider
-                    apiKey={process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY}
-                    chain={base} // add baseSepolia for testing
-                >
-                    <SidebarProvider className="w-screen h-screen">
-                        {props.children}
-                    </SidebarProvider>
-                </OnchainKitProvider>
-            </QueryClientProvider>
-        </WagmiProvider>
-    );
+// Initialize query client outside component
+const queryClient = new QueryClient();
+
+const connectors = connectorsForWallets(
+  [
+    {
+      groupName: 'Recommended Wallet',
+      wallets: [coinbaseWallet],
+    },
+    {
+      groupName: 'Other Wallets',
+      wallets: [rainbowWallet, metaMaskWallet],
+    },
+  ],
+  {
+    appName: 'onchainkit',
+    projectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID!,
+  },
+);
+
+const wagmiConfig = getDefaultConfig({
+  appName: 'onchainkit',
+  projectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID!,
+  chains: [base],
+  ssr: true,
+  connectors,
+  transports: {
+    [base.id]: http()
+  }
+});
+
+type Props = {
+  children: ReactNode;
+};
+
+function OnchainProviders({ children }: Props) {
+  if (!process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID) {
+    throw new Error('PUBLIC_WALLET_CONNECT_PROJECT_ID is not defined');
+  }
+
+  return (
+    <WagmiProvider config={wagmiConfig}>
+      <QueryClientProvider client={queryClient}>
+        <OnchainKitProvider
+          apiKey={process.env.NEXT_PUBLIC_ONCHAINKIT_API_KEY}
+          chain={base}
+        >
+          <RainbowKitProvider modalSize="compact">
+            {children}
+          </RainbowKitProvider>
+        </OnchainKitProvider>
+      </QueryClientProvider>
+    </WagmiProvider>
+  );
 }
+
+export default OnchainProviders;

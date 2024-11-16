@@ -5,6 +5,8 @@ import { ButtonScrollToBottom } from './button-scroll-to-bottom'
 import { RefreshCw, Square } from 'lucide-react'
 import { ChatMessage } from '@/lib/db/types'
 import { sendMessage, createUserMessage } from '@/lib/services/chat-service'
+import { useRouter } from 'next/navigation'
+import { useAccount } from 'wagmi'
 
 interface ChatPanelProps {
   id?: string
@@ -27,6 +29,31 @@ export function ChatPanel({
   setInput,
   messages
 }: ChatPanelProps) {
+  const router = useRouter()
+  const { isConnected } = useAccount()
+
+  const handleSubmit = async (value: string) => {
+    try {
+      // Append user message
+      const userMessage = createUserMessage(value, id)
+      await append(userMessage)
+
+      // Get and append AI response
+      const aiMessage = await sendMessage(value, id)
+      await append(aiMessage)
+
+      // After successful message exchange, redirect based on wallet connection
+      if (!isConnected) {
+        router.push('/login')
+      } else {
+        router.push('/new-chat')
+      }
+    } catch (error) {
+      console.error('Failed to get AI response:', error)
+      // Handle error appropriately
+    }
+  }
+
   return (
     <div className="">
       {/* <ButtonScrollToBottom /> */}
@@ -53,20 +80,7 @@ export function ChatPanel({
           )}
         </div>
         <PromptForm
-          onSubmit={async value => {
-            try {
-              // Append user message
-              const userMessage = createUserMessage(value, id)
-              await append(userMessage)
-
-              // Get and append AI response
-              const aiMessage = await sendMessage(value, id)
-              await append(aiMessage)
-            } catch (error) {
-              console.error('Failed to get AI response:', error)
-              // Handle error appropriately
-            }
-          }}
+          onSubmit={handleSubmit}
           input={input}
           setInput={setInput}
           isLoading={isLoading}

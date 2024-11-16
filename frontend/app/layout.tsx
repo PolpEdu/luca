@@ -38,11 +38,7 @@ export default function RootLayout({
       <body className="bg-primary h-screen w-screen flex">
         <Providers>
           <DatabaseInitializer />
-          <Sidebar />
-          <div className="h-screen w-screen flex flex-col">
-            <Navbar />
-            {children}
-          </div>
+          {children}
         </Providers>
       </body>
     </html>

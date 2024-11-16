@@ -28,8 +28,8 @@ export const navItems: NavItem[] = [
         primary: true
     },
     {
-        name: 'Previous Chats',
-        href: '/previous-chats',
+        name: 'Chat History',
+        href: '/chat-history',
         icon: MessageSquare
     },
     {
@@ -55,9 +55,13 @@ export default function CustomSidebar() {
         <Sidebar className="bg-secondary text-white p-4 gap-6 border-secondary">
             <SidebarHeader className="flex flex-row gap-4 justify-start items-center">
                 <Image src={Eva} alt="EVA Icon" className="size-10" />
-                <h1 className="w-fit text-3xl font-bold tracking-wider">
-                    EVA
-                </h1>
+                <div className="flex flex-col gap-1">
+
+                    <h1 className="w-fit text-3xl font-bold tracking-wider">
+                        EVA
+                    </h1>
+                    <p className='text-sm text-white'>Ethereum Virtual Assistant</p>
+                </div>
             </SidebarHeader>
             <SidebarContent>
                 <div className="flex flex-col gap-3">
@@ -83,7 +87,7 @@ export default function CustomSidebar() {
                 <Identity
                     address="0x838aD0EAE54F99F1926dA7C3b6bFbF617389B4D9"
                     schemaId="0xf8b05c79f090979bf4a80270aba232dff11a10d9ca55c4f88de95317970f0de9"
-                    className="bg-primary rounded-lg py-2 px-4"
+                    className="py-2"
                 >
                     <Avatar />
                     <Name>
