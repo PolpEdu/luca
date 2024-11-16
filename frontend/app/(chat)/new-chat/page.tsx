@@ -1,5 +1,5 @@
 import { ClientChat } from '@/components/ClientChat';
 
 export default function Page() {
-  return <ClientChat />;
+  return <ClientChat isNewChat={true} />;
 }

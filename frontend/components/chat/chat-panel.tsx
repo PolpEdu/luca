@@ -37,16 +37,15 @@ export function ChatPanel({
       const userMessage = createUserMessage(value, id)
       append(userMessage)
 
-      // Get and append AI response
-      const aiMessage = await sendRecordedAudio(audioData)
-      if (aiMessage) append(aiMessage)
+      
+      // if (aiMessage) append(aiMessage)
 
       // After successful message exchange, redirect based on wallet connection
-      if (!isConnected) {
-        router.push('/login')
-      } else {
-        router.push('/new-chat')
-      }
+      router.push('/new-chat')  
+      // if (!isConnected) {
+      //   router.push('/login')
+      // } else {
+      // }
     } catch (error) {
       console.error('Failed to get AI response:', error)
       // Handle error appropriately

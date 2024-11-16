@@ -6,7 +6,7 @@ import type { Chat as ChatType, Message } from '@/lib/db/types';
 import { PreviewChat } from './chat/preview-chat';
 import { Chat } from './chat';
 
-export function ClientChat() {
+export function ClientChat({ isNewChat = false }: { isNewChat?: boolean }) {
   const [chat, setChat] = useState<ChatType | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
 
@@ -24,13 +24,14 @@ export function ClientChat() {
   }, []);
 
   if (!chat) {
-    return <PreviewChat />;
+    return <PreviewChat isNewChat={isNewChat} />;
   }
 
   return (
     <Chat 
       id={chat.id}
       initialMessages={messages}
+      isNewChat={isNewChat}
     />
   );
 }

@@ -10,9 +10,10 @@ import { ChatMessage } from '@/lib/db/types'
 interface PreviewChatProps {
   id?: string
   initialMessages?: ChatMessage[]
+  isNewChat?: boolean
 }
 
-export function PreviewChat({ id, initialMessages = [] }: PreviewChatProps) {
+export function PreviewChat({ id, initialMessages = [], isNewChat = false }: PreviewChatProps) {
   const { toast } = useToast()
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages)
   const [input, setInput] = useState('')

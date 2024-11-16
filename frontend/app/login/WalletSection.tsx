@@ -16,10 +16,10 @@ import {
     EthBalance,
 } from '@coinbase/onchainkit/identity'
 
-export default function WalletSection() {
+export default function WalletSection({ className }: { className?: string }) {
     return (
         <Wallet>
-            <ConnectWallet withWalletAggregator>
+            <ConnectWallet withWalletAggregator className={className}>
                 <Avatar className="h-6 w-6" />
                 <Name />
             </ConnectWallet>
