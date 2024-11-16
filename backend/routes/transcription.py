@@ -43,3 +43,34 @@ def transcribe_audio():
     except Exception as e:
         print(f"Transcription error: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+
+# route to just stream with context
+@bp.route("/api/stream", methods=["POST"])
+def streamWithContext():
+    try:
+        # Get audio data from request
+        data = request.get_json()
+        if not data or "input" not in data:
+            return jsonify({"error": "No audio data provided"}), 400
+
+        if len(data["input"]) == 0:
+            return jsonify({"error": "No audio data provided"}), 400
+
+        config = {"configurable": {"thread_id": data["conversation_id"]}}
+
+        return Response(
+            stream_with_context(
+                run_agent(data["input"], current_app.agent_executor, config)
+            ),
+            mimetype="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Content-Type": "text/event-stream",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
+    except Exception as e:
+        print(f"Transcription error: {str(e)}")
+        return jsonify({"error": str(e)}), 500

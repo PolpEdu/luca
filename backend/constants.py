@@ -77,3 +77,5 @@ MESSAGE_TRANSMITTER_ABI: Final[list] = [
         "type": "function",
     }
 ]
+
+BASE_SEPOLIA_RPC: Final[str] = "https://base-sepolia.llamarpc.com"

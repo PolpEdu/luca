@@ -14,8 +14,7 @@ from agent.custom_actions.get_latest_block import get_latest_block
 from agent.custom_actions.fetchEnsAddress import get_ens_address
 from agent.custom_actions.get_price import get_price
 from agent.custom_actions.bridge import bridge_usdc
-
-import time
+from agent.custom_actions.get_balance_ens import get_balance_ens
 
 
 def initialize_agent():
@@ -96,6 +95,7 @@ def initialize_agent():
             get_latest_block,
             get_ens_address,
             get_price,
+            get_balance_ens,
             bridge_usdc,
         ]
 

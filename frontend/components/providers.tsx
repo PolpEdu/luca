@@ -1,15 +1,15 @@
 "use client"
 
 import { OnchainKitProvider } from '@coinbase/onchainkit';
-import { 
-  RainbowKitProvider, 
-  connectorsForWallets, 
-  getDefaultConfig, 
+import {
+  RainbowKitProvider,
+  connectorsForWallets,
+  getDefaultConfig,
 } from '@rainbow-me/rainbowkit';
-import { 
-  metaMaskWallet, 
-  rainbowWallet, 
-  coinbaseWallet, 
+import {
+  metaMaskWallet,
+  rainbowWallet,
+  coinbaseWallet,
 } from '@rainbow-me/rainbowkit/wallets';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
