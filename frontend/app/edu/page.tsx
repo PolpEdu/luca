@@ -65,39 +65,7 @@ export default function SpeechToText() {
     }
   };
 
-  const initializeAudioProcessing = async () => {
-    try {
-      streamRef.current = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          sampleRate: SAMPLE_RATE,
-        }
-      });
-
-      audioContextRef.current = new AudioContext({
-        sampleRate: SAMPLE_RATE,
-      });
-
-      const source = audioContextRef.current.createMediaStreamSource(streamRef.current);
-      processorRef.current = audioContextRef.current.createScriptProcessor(4096, 1, 1);
-
-      source.connect(processorRef.current);
-      processorRef.current.connect(audioContextRef.current.destination);
-
-      processorRef.current.onaudioprocess = (e) => {
-        const inputData = e.inputBuffer.getChannelData(0);
-        const pcmData = new Int16Array(floatTo16BitPCM(inputData));
-        setAudioData(prev => [...prev, pcmData]);
-      };
-
-      setIsRecording(true);
-      setError(null);
-    } catch (err) {
-      console.error('Error initializing audio:', err);
-      setError('Failed to access microphone');
-    }
-  };
+  
 
   const sendRecordedAudio = async () => {
     try {

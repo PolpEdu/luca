@@ -8,5 +8,8 @@ const withPWA = require('next-pwa')({
 })
 
 module.exports = withPWA({
+	devIndicators: {
+		appIsrStatus: false,
+	},
 	reactStrictMode: true
 })

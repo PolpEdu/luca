@@ -53,8 +53,8 @@ export default function CustomSidebar() {
 
     return (
         <Sidebar className="bg-secondary text-white p-4 gap-6 border-secondary">
-            <SidebarHeader className="flex flex-row gap-4 justify-start items-center">
-                <Image src={Eva} alt="EVA Icon" className="size-10" />
+            <SidebarHeader className="h-fit flex flex-row gap-4 justify-start items-center">
+                <Image src={Eva} alt="EVA Icon" className="size-12" />
                 <div className="flex flex-col gap-1">
 
                     <h1 className="w-fit text-3xl font-bold tracking-wider">
