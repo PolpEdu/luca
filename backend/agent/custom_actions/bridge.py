@@ -19,7 +19,7 @@ def bridge_usdc(amount: str, chain: str = "arbitrum") -> str:
     print(f"Bridging {amount} USDC to {chain}", flush=True)
     try:
         d = bridge_usdc_exec(
-            current_app.wallet_data,
+            current_app.agent_executor,
             current_app.wallet_data_arb,
             str(amount_wei),
         )

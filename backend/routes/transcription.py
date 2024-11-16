@@ -27,11 +27,18 @@ def transcribe_audio():
         # Process the audio using asyncio
         result = asyncio.run(transcription_service.transcribe_audio(audio_data))
         print("Transcribed text:", result["text"])
-        config = {"configurable": {"thread_id": data["conversation_id"]}}
+
+        # First, send the transcribed text
+        def generate():
+            # Send the transcribed text as a JSON object with 'transcribed' key
+            yield f"data: {{'type': 'transcribed', 'content': {repr(result['text'])}}}"
+
+            # Then stream the agent's response
+            config = {"configurable": {"thread_id": data["conversation_id"]}}
+            yield from run_agent(result["text"], current_app.agent_executor, config)
+
         return Response(
-            stream_with_context(
-                run_agent(result["text"], current_app.agent_executor, config)
-            ),
+            stream_with_context(generate()),
             mimetype="text/event-stream",
             headers={
                 "Cache-Control": "no-cache",
