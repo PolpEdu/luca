@@ -4,6 +4,7 @@ import constants
 from utils import format_sse
 from agent.handle_agent_action import handle_agent_action
 
+
 def run_agent(input, agent_executor, config) -> Iterator[str]:
     """Run the agent and yield formatted SSE messages"""
     try:
@@ -18,7 +19,9 @@ def run_agent(input, agent_executor, config) -> Iterator[str]:
                 name = chunk["tools"]["messages"][0].name
                 content = chunk["tools"]["messages"][0].content
                 if content:
-                    yield format_sse(content, constants.EVENT_TYPE_TOOLS, functions=[name])
+                    yield format_sse(
+                        content, constants.EVENT_TYPE_TOOLS, functions=[name]
+                    )
                     handle_agent_action(name, content)
     except Exception as e:
         yield format_sse(f"Error: {str(e)}", constants.EVENT_TYPE_ERROR)

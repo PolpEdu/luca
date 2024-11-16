@@ -14,23 +14,6 @@ import openai
 class AudioChunk:
     data: bytes
 
-    def is_silence(self, threshold: float = 0.005) -> bool:
-        """Check if audio chunk is silence or empty"""
-        try:
-            if not self.data or len(self.data) == 0:
-                return True
-
-            audio_array = np.frombuffer(self.data, dtype=np.int16)
-            if audio_array.size == 0:
-                return True
-
-            audio_array = audio_array.astype(np.float32) / 32768.0
-            rms = np.sqrt(np.mean(np.square(audio_array)))
-            return rms < threshold
-        except Exception as e:
-            print(f"Error in is_silence: {str(e)}")
-            return True
-
 
 class TranscriptionService:
     def __init__(self):
@@ -55,7 +38,9 @@ class TranscriptionService:
                         response = self.client.audio.transcriptions.create(
                             model="whisper-1", file=audio_file, response_format="text"
                         )
-                    text = response
+
+                    # strip from \n
+                    text = response.replace("\n", "")
 
                 except Exception as e:
                     traceback.print_exc()
