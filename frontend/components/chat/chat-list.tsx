@@ -1,8 +1,9 @@
 'use client'
 
-import { ChatMessage } from '@/lib/types'
+import { ChatMessage } from '@/lib/db/types'
 import { Message } from './chat-message'
-
+import Image from 'next/image'
+import Eva from '@/public/images/eva-icon.svg'
 export interface ChatListProps {
   messages: ChatMessage[]
 }
@@ -13,9 +14,26 @@ export function ChatList({ messages }: ChatListProps) {
   }
 
   return (
-    <div className="relative mx-auto max-w-2xl px-4">
+    <div className="h-full flex flex-col gap-4 relative max-w-2xl px-4 py-10">
       {messages.map((message, index) => (
-        <Message key={index} message={message} />
+        <div
+          key={index}
+          className={`flex gap-5 ${message.role === 'user'
+            ? 'justify-end'
+            : 'justify-start'
+            }`}
+        >
+          {message.role != 'user' &&
+            <Image src={Eva} alt="EVA Icon" className="!size-8" />}
+          <Message
+            message={message}
+            className={` text-white
+               ${message.role === 'user'
+                ? 'bg-[#3896D6]'
+                : 'py-0 px-0'}`
+            }
+          />
+        </div>
       ))}
     </div>
   )

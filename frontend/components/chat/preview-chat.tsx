@@ -39,7 +39,7 @@ export function PreviewChat({ id, initialMessages = [] }: PreviewChatProps) {
   }
 
   return (
-    <div className="flex h-[calc(100vh-theme(spacing.16))] flex-col space-y-4">
+    <div className="flex h-full flex-col space-y-4">
       {messages.length ? (
         <ChatList messages={messages} />
       ) : (

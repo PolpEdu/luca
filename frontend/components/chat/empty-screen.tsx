@@ -7,19 +7,19 @@ export function EmptyScreen({ setInput }: { setInput: (value: string) => void })
 
   const suggestions = [
     {
-      icon: <Send className="text-blue-400 size-8" />,
+      icon: <Send className="text-blue-400 !size-6" />,
       text: 'Send 5 USDC to a friend'
     },
     {
-      icon: <Split className="text-blue-400" />,
+      icon: <Split className="text-blue-400 !size-6" />,
       text: 'Split account'
     },
     {
-      icon: <Repeat className="text-blue-400" />,
+      icon: <Repeat className="text-blue-400 !size-6" />,
       text: 'Swap 5 USDC for EURC'
     },
     {
-      icon: <DollarSign className="text-blue-400" />,
+      icon: <DollarSign className="text-blue-400 !size-6" />,
       text: 'Show my portfolio value in USD'
     }
   ]
@@ -38,7 +38,7 @@ export function EmptyScreen({ setInput }: { setInput: (value: string) => void })
       </div>
       <div>
 
-        <div className="mt-4 flex flex-row flex-wrap gap-2 w-full justify-center">
+        <div className="mt-4 flex flex-row flex-wrap gap-3 w-full justify-center">
           {suggestions.map((message, index) => (
             <Button
               key={index}

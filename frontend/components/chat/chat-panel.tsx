@@ -4,6 +4,7 @@ import { PromptForm } from './prompt-form'
 import { ButtonScrollToBottom } from './button-scroll-to-bottom'
 import { RefreshCw, Square } from 'lucide-react'
 import { ChatMessage } from '@/lib/db/types'
+import { sendMessage, createUserMessage } from '@/lib/services/chat-service'
 
 interface ChatPanelProps {
   id?: string
@@ -27,7 +28,7 @@ export function ChatPanel({
   messages
 }: ChatPanelProps) {
   return (
-    <div className="fixed inset-x-0 bottom-0">
+    <div className="">
       {/* <ButtonScrollToBottom /> */}
       <div className="mx-auto sm:max-w-2xl sm:px-4">
         <div className="flex h-10 items-center justify-center">
@@ -51,22 +52,25 @@ export function ChatPanel({
             )
           )}
         </div>
-        <div className="space-y-4 px-4 py-2 sm:rounded-t-lg md:py-4">
-          <PromptForm
-            onSubmit={async value => {
-              await append({
-                id: Math.random().toString(),
-                content: value,
-                role: 'user',
-                chatId: id || '',
-                createdAt: new Date()
-              })
-            }}
-            input={input}
-            setInput={setInput}
-            isLoading={isLoading}
-          />
-        </div>
+        <PromptForm
+          onSubmit={async value => {
+            try {
+              // Append user message
+              const userMessage = createUserMessage(value, id)
+              await append(userMessage)
+
+              // Get and append AI response
+              const aiMessage = await sendMessage(value, id)
+              await append(aiMessage)
+            } catch (error) {
+              console.error('Failed to get AI response:', error)
+              // Handle error appropriately
+            }
+          }}
+          input={input}
+          setInput={setInput}
+          isLoading={isLoading}
+        />
       </div>
     </div>
   )

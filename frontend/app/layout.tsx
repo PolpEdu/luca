@@ -1,6 +1,11 @@
 import type { Metadata, Viewport } from 'next'
 import '@/styles/globals.css'
+import '@coinbase/onchainkit/styles.css';
 import { DatabaseInitializer } from '@/components/DatabaseInitializer'
+import Navbar from '@/components/navbar'
+import Sidebar from '@/components/sidebar'
+import { SidebarProvider } from '@/components/ui/sidebar'
+import Providers from '@/components/providers';
 
 export const metadata: Metadata = {
   title: 'Rice Bowl',
@@ -30,9 +35,15 @@ export default function RootLayout({
         <link rel='icon' type='image/png' href='/images/favicon.png' />
         <link rel='apple-touch-icon' href='/images/icon-maskable-512.png' />
       </head>
-      <body className="bg-primary">
-        <DatabaseInitializer />
-        {children}
+      <body className="bg-primary h-screen w-screen flex">
+        <Providers>
+          <DatabaseInitializer />
+          <Sidebar />
+          <div className="h-screen w-screen flex flex-col">
+            <Navbar />
+            {children}
+          </div>
+        </Providers>
       </body>
     </html>
   )
