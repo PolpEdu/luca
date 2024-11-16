@@ -11,7 +11,6 @@ import numpy as np
 @dataclass
 class AudioChunk:
     data: bytes
-    is_final: bool
 
     def is_silence(self, threshold: float = 0.005) -> bool:
         """Check if audio chunk is silence or empty"""
@@ -33,61 +32,71 @@ class AudioChunk:
 
 class TranscriptionService:
     def __init__(self):
-        self.ws_url = "wss://api.openai.com/v1/audio/speech-recognition"
+        self.ws_url = (
+            "wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01"
+        )
         self.ws = None
         self.is_initialized = False
         self._lock = None
-        self.message_listener_task = None
-        self.message_queue = asyncio.Queue()
-        self.running = False
+        self._recv_task = None
+        self._message_queue = None
+        self.has_speech = False
+        self._loop = None
+        self._audio_buffer = bytearray()
+        self.MIN_BUFFER_SIZE = 50 * 1024
 
-    async def _handle_server_response(self) -> Optional[Dict[str, Any]]:
-        """Handle server response and return parsed JSON if available"""
-        try:
-            response = await self.ws.recv()
-            data = json.loads(response)
-            print(f"\n[OpenAI Event] Type: {data.get('type')}")
-            print(f"[OpenAI Event] Full response:\n{json.dumps(data, indent=2)}")
-            return data
-        except Exception as e:
-            print(f"[OpenAI Event] Error processing response: {str(e)}")
-            return None
+    def _ensure_loop(self):
+        """Ensure we have an event loop and queue initialized"""
+        if self._loop is None or self._loop.is_closed():
+            self._loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(self._loop)
+            self._message_queue = asyncio.Queue()
+            self._lock = asyncio.Lock()
 
     async def _message_listener(self):
-        """Background task to continuously listen for WebSocket messages"""
+        """Background task to continuously listen for messages"""
         try:
-            while self.running:
-                if self.ws and self.ws.open:
-                    response = await self._handle_server_response()
-                    if response:
-                        await self.message_queue.put(response)
-                else:
-                    await asyncio.sleep(0.1)  # Prevent busy waiting
+            while True:
+                if not self.ws:
+                    break
+                try:
+                    message = await self.ws.recv()
+                    await self._message_queue.put(json.loads(message))
+                except websockets.exceptions.ConnectionClosed:
+                    break
+                except Exception as e:
+                    print(f"Error in message listener: {str(e)}")
+                    break
         except Exception as e:
-            print(f"[Message Listener] Error: {str(e)}")
-        finally:
-            self.running = False
+            print(f"Message listener terminated: {str(e)}")
 
-    async def _start_message_listener(self):
-        """Start the background message listener if not already running"""
-        if not self.running:
-            self.running = True
-            self.message_listener_task = asyncio.create_task(self._message_listener())
+    async def _get_next_message(self, timeout: float = 5.0) -> Optional[Dict[str, Any]]:
+        """Get next message from the queue with timeout"""
+        try:
+            return await asyncio.wait_for(self._message_queue.get(), timeout)
+        except asyncio.TimeoutError:
+            return None
 
     async def ensure_connection(self) -> None:
         """Ensure WebSocket connection is established and initialized"""
-        lock = self._get_lock()
-        async with lock:
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+
+        async with self._lock:
             if not self.ws or not self.ws.open:
                 headers = {
                     "Authorization": f"Bearer {os.getenv('OPENAI_API_KEY')}",
+                    "OpenAI-Beta": "realtime=v1",
                 }
                 try:
                     print("[OpenAI] Connecting to WebSocket...")
                     self.ws = await websockets.connect(
                         self.ws_url, extra_headers=headers
                     )
+                    # Start message listener
+                    self._recv_task = asyncio.create_task(self._message_listener())
                     self.is_initialized = False
+
                 except Exception as e:
                     raise ConnectionError(f"Failed to connect to OpenAI: {str(e)}")
 
@@ -97,85 +106,138 @@ class TranscriptionService:
                     await self.ws.send(
                         json.dumps(
                             {
-                                "type": "start",
-                                "model": "whisper-1",
-                                "format": "pcm16",
-                                "sample_rate": 16000,
+                                "type": "session.update",
+                                "session": {
+                                    "instructions": "Make an accurate transcription of the audio given in the prompt.",
+                                    "input_audio_format": {
+                                        "type": "pcm",
+                                        "sample_rate": 16000,
+                                        "bit_depth": 16,
+                                        "channels": 1,
+                                    },
+                                    "output_audio_format": {
+                                        "type": "pcm",
+                                        "sample_rate": 16000,
+                                        "bit_depth": 16,
+                                        "channels": 1,
+                                    },
+                                    "transcription": {
+                                        "model": "whisper-1",
+                                        "turns": True,
+                                    },
+                                    "vad": {
+                                        "type": "server",
+                                        "threshold": 0.1,
+                                        "prefix_padding_ms": 10,
+                                        "silence_duration_ms": 999,
+                                    },
+                                },
                             }
                         )
                     )
 
-                    await self._handle_server_response()
+                    # Wait for session.updated response
+                    response = await self._get_next_message()
+                    if response and response.get("type") == "session.created":
+                        self.is_initialized = True
+                    else:
+                        print("response err", response)
+                        raise ConnectionError("Failed to initialize session")
 
-                    await self._start_message_listener()
-
-                    self.is_initialized = True
                 except Exception as e:
                     await self.cleanup()
                     raise ConnectionError(f"Failed to initialize session: {str(e)}")
 
     async def process_audio(self, chunk: AudioChunk) -> Dict[str, Any]:
-        """Process audio chunk and return transcription if final"""
+        """Process audio chunk and return transcription"""
         try:
-            if chunk.is_final and (not chunk.data or len(chunk.data) == 0):
-                print("[TranscriptionService] Received final empty chunk")
-                return {"status": "stopped"}
-
-            if chunk.is_silence():
-                await self.ws.send(json.dumps({"type": "input_audio_buffer.commit"}))
-                await self.ws.send(json.dumps({"type": "response.create"}))
-                return {"status": "silence_detected"}
-
             await self.ensure_connection()
             print(
                 f"[TranscriptionService] Processing audio chunk: {len(chunk.data)} bytes"
             )
 
-            base64_audio = base64.b64encode(chunk.data).decode("utf-8")
+            # Accumulate audio data
+            self._audio_buffer.extend(chunk.data)
+
+            # If buffer is too small, keep accumulating
+            if len(self._audio_buffer) < self.MIN_BUFFER_SIZE:
+                print(
+                    f"[TranscriptionService] Buffer size ({len(self._audio_buffer)} bytes) < minimum ({self.MIN_BUFFER_SIZE} bytes), accumulating more data"
+                )
+                return {"status": "buffering"}
+
+            # Process the accumulated buffer
+            buffer_data = bytes(self._audio_buffer)
+            self._audio_buffer.clear()  # Clear the buffer after processing
+
+            # Count the number of zero bytes
+            zero_count = buffer_data.count(b"\x00")
+            zero_percentage = zero_count / len(buffer_data)
+
+            if zero_percentage > 0.95:
+                if self.has_speech:  # Only commit if we've seen speech before
+                    print(
+                        "[TranscriptionService] Silence detected after speech, committing buffer"
+                    )
+                    await self.ws.send(
+                        json.dumps({"type": "input_audio_buffer.commit"})
+                    )
+                    self.has_speech = False
+                else:
+                    print("[TranscriptionService] Skipping initial silence")
+                return {"status": "buffering"}
+
+            # Calculate audio duration
+            audio_duration_ms = (len(buffer_data) / 2) / 16000 * 1000
+
+            if audio_duration_ms < 100:  # Minimum 100ms required
+                print(
+                    f"[TranscriptionService] Buffer too small ({audio_duration_ms:.2f}ms), accumulating more data"
+                )
+                return {"status": "buffering"}
+
+            # Send audio data to buffer
+            base64_audio = base64.b64encode(buffer_data).decode("utf-8")
             await self.ws.send(
                 json.dumps({"type": "input_audio_buffer.append", "audio": base64_audio})
             )
 
-            if chunk.is_final:
-                print("[OpenAI] Processing final chunk, committing buffer...")
-                await self.ws.send(json.dumps({"type": "input_audio_buffer.commit"}))
-                await self.ws.send(json.dumps({"type": "response.create"}))
+            self.has_speech = True
 
-                while True:
-                    try:
-                        response = await asyncio.wait_for(
-                            self.message_queue.get(), timeout=5.0
-                        )
+            # Process messages with timeout
+            while True:
+                response = await self._get_next_message(timeout=0.1)
+                if not response:
+                    return {"status": "buffering"}
 
-                        event_type = response.get("type")
+                event_type = response.get("type")
+                print(f"[OpenAI Event] Received Type: {event_type}")
 
-                        if event_type == "input_audio_buffer.speech_started":
-                            print("[OpenAI] Speech detected")
-                        elif event_type == "input_audio_buffer.speech_stopped":
-                            print("[OpenAI] Speech ended")
-                        elif event_type == "input_audio_buffer.committed":
-                            print("[OpenAI] Audio buffer committed")
-                        elif event_type == "error":
-                            print(f"[OpenAI Error] {response.get('message')}")
-                            break
-                        elif event_type == "conversation.item.created":
-                            item = response.get("item", {})
-                            print(f"[OpenAI] Item: {item}")
-                            if item.get("role") == "assistant":
-                                content = item.get("content", [])
-                                for content_item in content:
-                                    if content_item.get("type") == "text":
-                                        text = content_item.get("text", "")
-                                        print(f"[OpenAI] Transcribed text: {text}")
-                                        return {"text": text}
-                        elif event_type == "response.completed":
-                            print("[OpenAI] Response completed")
-                            break
-
-                    except asyncio.TimeoutError:
-                        print("[TranscriptionService] Timeout waiting for response")
-                        break
-
+                if event_type == "input_audio_buffer.speech_started":
+                    print("[OpenAI] Speech detected")
+                elif event_type == "input_audio_buffer.speech_stopped":
+                    print("[OpenAI] Speech ended")
+                elif event_type == "input_audio_buffer.committed":
+                    print("[OpenAI] Audio buffer committed")
+                elif event_type == "error":
+                    print(f"[OpenAI Error] {response.get('error', {}).get('message')}")
+                    return {"error": response.get("error", {}).get("message")}
+                elif event_type == "conversation.item.created":
+                    item = response.get("item", {})
+                    if item.get("role") == "assistant":
+                        content = item.get("content", [])
+                        for content_item in content:
+                            if content_item.get("type") == "text":
+                                text = content_item.get("text", "")
+                                print(f"[OpenAI] Transcribed text: {text}")
+                                return {"text": text}
+                elif (
+                    event_type == "response.content_part.done"
+                    or event_type == "response.output_item.done"
+                    or event_type == "response.done"
+                    or event_type == "input_audio_buffer.speech_stopped"
+                ):
+                    print(f"[OpenAI LFG] {response}")
             return {"status": "buffering"}
 
         except websockets.exceptions.ConnectionClosed as e:
@@ -187,48 +249,45 @@ class TranscriptionService:
             await self.cleanup()
             raise RuntimeError(f"Error processing audio: {str(e)}")
 
-    def _get_lock(self):
-        if self._lock is None:
-            self._lock = asyncio.Lock()
-        return self._lock
-
     def process_audio_sync(self, chunk: AudioChunk) -> Dict[str, Any]:
         """Synchronous version of process_audio"""
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+        self._ensure_loop()
         try:
-            self._lock = None
-            return loop.run_until_complete(self.process_audio(chunk))
-        finally:
-            loop.close()
+            return self._loop.run_until_complete(self.process_audio(chunk))
+        except Exception as e:
+            print(f"Error in process_audio_sync: {str(e)}")
+            self._loop.run_until_complete(self.cleanup())
+            raise
 
     async def cleanup(self) -> None:
         """Clean up WebSocket connection"""
-        self.running = False
-        if self.message_listener_task:
+        self._audio_buffer.clear()
+        if self._recv_task and not self._recv_task.done():
+            self._recv_task.cancel()
             try:
-                self.message_listener_task.cancel()
-                await self.message_listener_task
-            except Exception as e:
-                print(
-                    f"[TranscriptionService] Error canceling message listener: {str(e)}"
-                )
+                await self._recv_task
+            except asyncio.CancelledError:
+                pass
 
         if self.ws:
             try:
-                print("[TranscriptionService] Cleaning up connection...")
                 await self.ws.close()
             except Exception as e:
-                print(f"[TranscriptionService] Error during cleanup: {str(e)}")
-            finally:
-                self.ws = None
-                self.is_initialized = False
+                print(f"Error closing websocket: {str(e)}")
+
+        self.ws = None
+        self.is_initialized = False
+        self._recv_task = None
 
     def reset_sync(self) -> None:
         """Synchronous version of reset"""
-        loop = asyncio.new_event_loop()
-        try:
-            asyncio.set_event_loop(loop)
-            loop.run_until_complete(self.cleanup())
-        finally:
-            loop.close()
+        if self._loop and not self._loop.is_closed():
+            try:
+                self._loop.run_until_complete(self.cleanup())
+            except Exception as e:
+                print(f"Error in reset_sync: {str(e)}")
+            finally:
+                self._loop.close()
+                self._loop = None
+                self._message_queue = None
+                self._lock = None

@@ -18,10 +18,8 @@ def handle_websocket(ws):
                 # Convert audio data to bytes
                 audio_data = np.array(data["audio_data"], dtype=np.int16).tobytes()
 
-                # Create AudioChunk
-                chunk = AudioChunk(
-                    data=audio_data, is_final=data.get("is_final", False)
-                )
+                # Create AudioChunk without final logic
+                chunk = AudioChunk(data=audio_data)
                 print(f"Audio chunk: {chunk.data[:10]}")
 
                 # Process the audio

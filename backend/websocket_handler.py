@@ -25,12 +25,13 @@ class WebSocketManager:
                     if data["type"] == "audio":
                         chunk = AudioChunk(
                             data=bytes(data["audio_data"]),
-                            is_final=data.get("is_final", False),
                         )
 
                         result = await self.transcription_services[
                             client_id
                         ].process_audio(chunk)
+
+                        print(f"[WebSocket] Sending result: {result}")
                         await websocket.send(json.dumps(result))
 
                 except Exception as e:
