@@ -8,7 +8,8 @@ import Image from 'next/image'
 import Eva from '@/public/images/eva-icon.svg'
 import OpenAI from 'openai';
 import { toast } from '@/hooks/use-toast'
-import { sendMessage } from '@/lib/services/chat-service'
+import { createSystemMessage, createUserMessage } from '@/lib/services/chat-service'
+import { useRouter } from 'next/navigation'
 
 type Speaker = 'user' | 'system'
 type SpeakerState = 0 | 1
@@ -43,6 +44,7 @@ export function PromptForm({
   setInput,
   isLoading
 }: PromptFormProps) {
+  const router = useRouter()
   const formRef = useRef<HTMLFormElement>(null)
   const [isVoiceMode, setIsVoiceMode] = useState(false)
   const [speaker, setSpeaker] = useState<Speaker>('user')
@@ -208,17 +210,25 @@ export function PromptForm({
               const jsonResponse = JSON.parse(line);
               if (jsonResponse.event === 'tools') {
                 setToolsData(jsonResponse.data);
-              } else if (jsonResponse.event === 'agent') {
+              } else if (jsonResponse.event === 'transcribed') {
+                createUserMessage(jsonResponse.data, "0");
+              }
+               else if (jsonResponse.event === 'agent') {
+                setSpeakerState(1)
+                createSystemMessage(jsonResponse.data, "0"); // Call createSystemMessage to add the new message as system
                 generateSpeech(jsonResponse.data);
 
                 //TODO THE CHAT ID WILL BE THE URL ID 
-                const chatId = await getCurrentChatId(); // Assuming getCurrentChatId is a function that fetches the current chat ID
-                sendMessage(jsonResponse.data, chatId); // Call sendMessage to add the new message as system
-                setSpeakerState(1)
+                // const chatId = await getCurrentChatId(); // Assuming getCurrentChatId is a function that fetches the current chat ID
               }
 
             } catch (err) {
               console.error('Error parsing JSON:', err);
+              toast({
+                title: "Failed to parse JSON",
+                variant: "destructive"
+              });
+              setSpeaker('user');
             }
           }
         });
@@ -261,9 +271,35 @@ export function PromptForm({
     } finally {
       setSpeaker('user');
       setSpeakerState(0);
-      
     }
   };
+
+  const handleNewMessage = async (message: string) => {
+    try {
+      // Create a new chat and get the ID
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/chats`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message })
+      });
+      
+      const { chatId } = await response.json();
+      
+      // Redirect to the new chat URL
+      router.push(`/chat/${chatId}`);
+      
+      // Submit the message
+      await onSubmit(message);
+    } catch (err) {
+      console.error('Error creating new chat:', err);
+      toast({
+        title: "Failed to create new chat",
+        variant: "destructive"
+      });
+    }
+  }
 
   return (
     <form
@@ -274,7 +310,7 @@ export function PromptForm({
           return
         }
         setInput('')
-        await onSubmit(input)
+        await handleNewMessage(input)
       }}
       className="h-fit flex justify-center items-center"
     >
@@ -293,53 +329,60 @@ export function PromptForm({
             rows={1}
           />
 
-          {!isVoiceMode && input.trim() ? ( // the user is not talking
-            <Button
-              type="button"
-              onClick={async () => {
-                if (input?.trim()) {
-                  await onSubmit(input);
-                  setInput('');
-                }
-              }}
-              className="h-[55px] w-[55px] p-0 m-0 rounded-full border-[5px] border-secondary hover:bg-secondary active:bg-secondary"
-            >
-              <SendHorizontal className='text-white !size-6' />
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              onClick={() => {
-                setSpeakerState(1);
-                handleToggleRecording();
-              }}
-              className={`h-[55px] w-[55px] p-0 m-0 rounded-full border-[5px] border-secondary 
-                    ${isVoiceMode ? 'bg-red-500 hover:bg-red-600' : 'hover:bg-secondary active:bg-secondary'}`}
-            >
-              <AudioLinesIcon className='text-white !size-6' />
-            </Button>
+          {!isVoiceMode && (
+            input.trim() ? ( // the user is not talking
+              <Button
+                type="button"
+                onClick={async () => {
+                  if (input?.trim()) {
+                    await handleNewMessage(input);
+                    setInput('');
+                  }
+                }}
+                className="h-[55px] w-[55px] p-0 m-0 rounded-full border-[5px] border-secondary hover:bg-secondary active:bg-secondary"
+              >
+                <SendHorizontal className='text-white !size-6' />
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                onClick={() => {
+                  console.log("recording started")
+                  setIsVoiceMode(true);
+                  setSpeakerState(1);
+                  handleToggleRecording();
+                }}
+                className={`h-[55px] w-[55px] p-0 m-0 rounded-full border-[5px] border-secondary`}
+              >
+                <AudioLinesIcon className='text-white !size-6' />
+              </Button>
+            )
           )}
 
-          {isVoiceMode && speaker === 'user' && // // the microphone is on and the user is talking
+          {isVoiceMode && speaker === 'user' && // the microphone is on and the user is talking
             <Button
               type="button"
               onClick={() => {
+                console.log("recording stopped")
                 setSpeaker('system');
                 setSpeakerState(0);
+                handleToggleRecording();
               }}
-              className={`h-[55px] w-[55px] p-0 m-0 rounded-full border-[5px] border-secondary 
-                    ${isVoiceMode ? 'bg-red-500 hover:bg-red-600' : 'hover:bg-secondary active:bg-secondary'}`}
+              className={`h-[55px] w-[55px] p-0 m-0 rounded-full border-[5px] border-secondary bg-[#51ace7] animate-pulse`}
             >
-              <SquareIcon className='text-white !size-6' />
+              <SquareIcon className='text-primary !size-6' />
             </Button>
           }
 
           {isVoiceMode && speaker === 'system' &&
             speakerState === 0 ? ( // EVA is loading
-            <div className={`h-[55px] w-[55px] p-0 m-0 rounded-full border-[5px] border-secondary 
-                    `}>
-              <div className="flex justify-center items-center">
-                <div className="loader"></div>
+            <div className={`h-[55px] w-[55px] flex items-center justify-center p-0 m-0 rounded-full border-[5px] border-secondary`}>
+              <div role="status">
+                <svg aria-hidden="true" className="w-8 h-8 text-primary animate-spin dark:text-gray-600 fill-blue-600" viewBox="0 0 100 101" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z" fill="currentColor" />
+                  <path d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z" fill="currentFill" />
+                </svg>
+                <span className="sr-only">Loading...</span>
               </div>
             </div>
           ) : ( // EVA is talking

@@ -52,87 +52,6 @@ export function EmptyScreen({ setInput, isTranscribing = false }: { setInput: (v
     }
   ]
 
-  const initializeAudioProcessing = async () => {
-    try {
-      streamRef.current = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          sampleRate: SAMPLE_RATE,
-        }
-      })
-
-      audioContextRef.current = new AudioContext({ sampleRate: SAMPLE_RATE })
-      const source = audioContextRef.current.createMediaStreamSource(streamRef.current)
-      processorRef.current = audioContextRef.current.createScriptProcessor(4096, 1, 1)
-
-      source.connect(processorRef.current)
-      processorRef.current.connect(audioContextRef.current.destination)
-
-      processorRef.current.onaudioprocess = (e) => {
-        const inputData = e.inputBuffer.getChannelData(0)
-        const pcmData = new Int16Array(floatTo16BitPCM(inputData))
-        setAudioData(prev => [...prev, pcmData])
-      }
-
-      setIsRecording(true)
-      setError(null)
-    } catch (err) {
-      console.error('Error initializing audio:', err)
-      setError('Failed to access microphone')
-    }
-  }
-
-  const stopRecording = async () => {
-    if (silenceTimeoutRef.current) {
-      clearTimeout(silenceTimeoutRef.current)
-      silenceTimeoutRef.current = null
-    }
-
-    if (processorRef.current) {
-      processorRef.current.disconnect()
-      processorRef.current = null
-    }
-
-    if (audioContextRef.current) {
-      await audioContextRef.current.close()
-      audioContextRef.current = null
-    }
-
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop())
-      streamRef.current = null
-    }
-
-    await sendRecordedAudio(audioData)
-  }
-
-  const handleToggleRecording = async () => {
-    if (!isRecording) {
-      try {
-        await initializeAudioProcessing()
-      } catch (err) {
-        console.error('Error starting recording:', err)
-        setError('Failed to start recording')
-      }
-    } else {
-      await stopRecording()
-    }
-  }
-
-  useEffect(() => {
-    audioPlayerRef.current = new Audio()
-    audioPlayerRef.current.onended = () => setIsPlaying(false)
-
-    return () => {
-      stopRecording()
-      if (audioPlayerRef.current) {
-        audioPlayerRef.current.pause()
-        audioPlayerRef.current = null
-      }
-    }
-  }, [])
-
   return (
     <div className="h-full flex flex-col justify-center items-center max-w-2xl p-4 gap-24">
       <div className="h-fit flex flex-col justify-center items-center gap-2 text-white text-center">
@@ -145,43 +64,23 @@ export function EmptyScreen({ setInput, isTranscribing = false }: { setInput: (v
           Let EVA handle it for you effortlessly.
         </p>
       </div>
-      <div>
-        <div className="mb-4 flex justify-center">
+      <div className="mt-4 flex flex-row flex-wrap gap-3 w-full justify-center">
+        {suggestions.map((message, index) => (
           <Button
-            onClick={handleToggleRecording}
-            disabled={isTranscribing}
+            key={index}
             variant="ghost"
-            className={`h-12 w-12 rounded-full ${isRecording ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-500 hover:bg-blue-600'} 
-                       flex items-center justify-center ${isTranscribing ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            {isRecording ? <MicOff className="text-white" /> : <Mic className="text-white" />}
-          </Button>
-        </div>
-
-        {error && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded text-center">
-            {error}
-          </div>
-        )}
-
-        <div className="mt-4 flex flex-row flex-wrap gap-3 w-full justify-center">
-          {suggestions.map((message, index) => (
-            <Button
-              key={index}
-              variant="ghost"
-              className="h-auto w-fit max-w-[12rem] flex items-center justify-center gap-3 px-4 py-3 
+            className="h-auto w-fit max-w-[12rem] flex items-center justify-center gap-3 px-4 py-3 
                          border-[3px] border-secondary bg-transparent hover:bg-secondary hover:text-white text-white rounded-2xl"
-              onClick={() => setInput(message.text)}
-            >
-              <div className="text-blue-400 shrink-0">
-                {message.icon}
-              </div>
-              <span className="text-sm font-medium whitespace-normal text-left">
-                {message.text}
-              </span>
-            </Button>
-          ))}
-        </div>
+            onClick={() => setInput(message.text)}
+          >
+            <div className="text-blue-400 shrink-0">
+              {message.icon}
+            </div>
+            <span className="text-sm font-medium whitespace-normal text-left">
+              {message.text}
+            </span>
+          </Button>
+        ))}
       </div>
     </div>
   )
