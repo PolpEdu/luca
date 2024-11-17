@@ -6,6 +6,8 @@ import { EmptyScreen } from './empty-screen'
 import { useToast } from '@/hooks/use-toast'
 import { useState } from 'react'
 import { ChatMessage } from '@/lib/db/types'
+import { Button } from '@/components/ui/button'
+import { Trash2 } from 'lucide-react'
 
 interface PreviewChatProps {
   id?: string
@@ -39,8 +41,28 @@ export function PreviewChat({ id, initialMessages = [] }: PreviewChatProps) {
     })
   }
 
+  const resetChat = () => {
+    setMessages([])
+    setInput('')
+    setIsLoading(false)
+    toast({
+      title: "Chat Reset",
+      description: "All messages have been cleared"
+    })
+  }
+
   return (
-    <div className="flex h-full flex-col space-y-4">
+    <div className="flex h-[calc(100vh-4rem)] flex-col space-y-4 overflow-y-auto">
+      <div className="flex justify-end px-4 pt-4">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-muted-foreground hover:text-destructive"
+          onClick={resetChat}
+        >
+          <Trash2 className="h-5 w-5" />
+        </Button>
+      </div>
       {messages.length > 0 ? (
         <ChatList messages={messages} />
       ) : (

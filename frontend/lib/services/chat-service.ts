@@ -23,7 +23,7 @@ export function createSystemMessage(
 		// Convert markdown links to HTML anchor tags
 		formattedMessage = message.replace(
 			/\[([^\]]+)\]\(([^)]+)\)/g,
-			'<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>',
+			'<a href="$2" target="_blank" rel="noopener noreferrer" style="color: #3896D6; text-decoration: underline;">$1</a>',
 		)
 	} catch {
 		// If parsing fails, use the original message

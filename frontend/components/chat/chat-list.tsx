@@ -14,7 +14,7 @@ export function ChatList({ messages }: ChatListProps) {
   }
 
   return (
-    <div className="h-full flex flex-col gap-4 relative max-w-2xl px-4 py-10">
+    <div className="flex flex-col gap-4 relative max-w-2xl px-4 py-10">
       {messages.map((message, index) => (
         <div
           key={index}
@@ -35,6 +35,7 @@ export function ChatList({ messages }: ChatListProps) {
           />
         </div>
       ))}
+      <div className="h-[284px]"></div>
     </div>
   )
 }

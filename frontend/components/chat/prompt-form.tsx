@@ -372,7 +372,7 @@ export function PromptForm({
     >
 
       <div className="w-full h-full">
-        <div className="h-[4.5rem] px-4 py-2 grid grid-cols-[1fr_min-content] items-center gap-2">
+        <div className="h-[6rem] px-4 py-2 grid grid-cols-[1fr_min-content] items-center gap-2">
           <Textarea
             value={input}
             onChange={e => setInput(e.target.value)}

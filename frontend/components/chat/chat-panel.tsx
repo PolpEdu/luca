@@ -48,7 +48,7 @@ export function ChatPanel({
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0  backdrop-blur-sm" style={{ paddingBottom: 'padding-bottom: calc(4.5rem + 2.5rem);' }}>
+    <div className="fixed bottom-0 left-0 right-0  backdrop-blur-sm">
       <div className="mx-auto sm:max-w-2xl sm:px-4">
         <div className="flex h-10 items-center justify-center">
           {isLoading ? (
@@ -56,7 +56,7 @@ export function ChatPanel({
               onClick={stop}
               className="flex items-center gap-2 rounded-lg p-2 text-muted-foreground hover:bg-background"
             >
-              <Square className="h-4 w-4" />
+              <Square className="h-4 w-4" onClick={stop} />
               Stop generating
             </button>
           ) : (
@@ -65,7 +65,7 @@ export function ChatPanel({
                 onClick={reload}
                 className="flex items-center gap-2 rounded-lg p-2 text-muted-foreground hover:bg-background"
               >
-                <RefreshCw className="h-4 w-4" />
+                <RefreshCw className="h-4 w-4" onClick={reload} />
                 Regenerate response
               </button>
             )
@@ -78,6 +78,6 @@ export function ChatPanel({
           isLoading={isLoading}
         />
       </div>
-    </div>
+    </div >
   )
 }

@@ -9,8 +9,8 @@ interface MessageProps {
 
 export function Message({ message, className }: MessageProps) {
   return (
-    <div className={`px-4 py-2 rounded-3xl max-w-[80%] ${className}`}>
-      {message.content}
-    </div>
+    <div className={`px-4 py-2 rounded-3xl max-w-[80%] ${className}`}
+      dangerouslySetInnerHTML={{ __html: message.content }}
+    />
   )
 }
