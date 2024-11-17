@@ -432,7 +432,13 @@ export function PromptForm({
 
           {/* System Processing/Speaking Mode */}
           {isVoiceMode && !isRecording && (
-            <div className="h-[55px] w-[55px] flex items-center justify-center p-0 m-0 rounded-full border-[5px] border-secondary bg-blue-500 animate-pulse">
+            <div className="h-[55px] w-[55px] flex items-center justify-center p-0 m-0 rounded-full border-[5px] border-secondary bg-blue-500 animate-pulse"
+              onClick={() => {
+                // stop audio ref
+                audioPlayerRef.current?.pause()
+                setIsVoiceMode(false)
+              }}
+            >
               <Image src={Eva} alt="EVA Icon" className='text-white !size-6' />
             </div>
           )}

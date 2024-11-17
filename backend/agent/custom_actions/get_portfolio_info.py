@@ -7,7 +7,7 @@ from flask import current_app
 from cdp import Wallet
 
 
-def get_portfolio_info(ensOrAddress: str, chain: str) -> dict:
+def get_portfolio_info(ensOrAddress: str, chain: str = "ethereum") -> dict:
     """Gets address information for a given wallet address. If the user asks for HIS portfolio info use the agent one. BY DEFAULT USE ETH MAINNET unless otherwise specified.
     Includes current value, token details, and profit/loss information. With also the blockscout explorer: https://base-sepolia.blockscout.com/{address}/{address}
 

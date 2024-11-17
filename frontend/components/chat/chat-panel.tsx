@@ -48,8 +48,7 @@ export function ChatPanel({
   }
 
   return (
-    <div className="">
-      {/* <ButtonScrollToBottom /> */}
+    <div className="fixed bottom-0 left-0 right-0  backdrop-blur-sm" style={{ paddingBottom: 'padding-bottom: calc(4.5rem + 2.5rem);' }}>
       <div className="mx-auto sm:max-w-2xl sm:px-4">
         <div className="flex h-10 items-center justify-center">
           {isLoading ? (
