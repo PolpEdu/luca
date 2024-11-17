@@ -19,6 +19,7 @@ cdp-agentkit-core = "^0.0.3"
 flask-cors = "^5.0.0"
 flask-sock = "^0.7.0"
 faster-whisper = "^1.0.3"
+py-solc-x = "^2.0.3"
 
 
 [build-system]

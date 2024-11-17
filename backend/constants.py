@@ -31,7 +31,7 @@ AGENT_PROMPT: Final[str] = (
 )
 
 
-def get_blockscout_explorer(
+def get_tx_explorer(
     payload: str,
     isTransaction: bool = False,
     isAddress: bool = False,
@@ -87,3 +87,8 @@ MESSAGE_TRANSMITTER_ABI: Final[list] = [
 ]
 
 BASE_SEPOLIA_RPC: Final[str] = "https://base-sepolia.llamarpc.com"
+
+
+ERC20_CONTRACT_SOURCE: Final[str] = (
+    "https://raw.githubusercontent.com/OpenZeppelin/openzeppelin-contracts/v4.9.0/contracts/token/ERC20/ERC20.sol"
+)

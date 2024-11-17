@@ -1,7 +1,7 @@
 import os
 import time
 import requests
-from constants import get_blockscout_explorer
+from constants import get_tx_explorer
 from utils import fetch_address_ens
 from flask import current_app
 from cdp import Wallet
@@ -63,7 +63,7 @@ def get_portfolio_info(ensOrAddress: str, chain: str = "ethereum") -> dict:
             headers=headers,
         ).json()
 
-        print(current_value, "\n\n\n\n", token_details, flush=True)
+        # print(current_value, "\n\n\n\n", token_details, flush=True)
 
         # Format response
         portfolio_data = {
@@ -77,9 +77,7 @@ def get_portfolio_info(ensOrAddress: str, chain: str = "ethereum") -> dict:
                 ),
             },
             "tokens": [],
-            "blockscout_link": get_blockscout_explorer(
-                address, isAddress=True, chain=chain
-            ),
+            "blockscout_link": get_tx_explorer(address, isAddress=True, chain=chain),
         }
         # Add token details
         for token in token_details.get("result", []):
